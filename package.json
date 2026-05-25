@@ -1,0 +1,17 @@
+{
+  "name": "domain-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WordPress plugin for monitoring domain health and continuity.",
+  "scripts": {
+    "wp-env:start": "wp-env start",
+    "wp-env:stop": "wp-env stop",
+    "wp-env:destroy": "wp-env destroy",
+    "wp-env:composer": "wp-env run cli composer install",
+    "test:unit": "wp-env run cli composer test:unit",
+    "test": "wp-env run cli composer test"
+  },
+  "devDependencies": {
+    "@wordpress/env": "^10.0.0"
+  }
+}
