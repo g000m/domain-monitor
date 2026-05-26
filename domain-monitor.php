@@ -24,6 +24,14 @@ if (file_exists($domain_monitor_autoload)) {
     require_once $domain_monitor_autoload;
 }
 
+register_activation_hook(__FILE__, static function (): void {
+    global $wpdb;
+
+    if (class_exists(\DomainMonitor\Storage\Installer::class)) {
+        (new \DomainMonitor\Storage\Installer($wpdb))->install();
+    }
+});
+
 add_action('plugins_loaded', static function (): void {
     if (class_exists(\DomainMonitor\Plugin::class)) {
         (new \DomainMonitor\Plugin())->register();

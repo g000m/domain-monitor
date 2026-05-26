@@ -3,15 +3,25 @@ declare(strict_types=1);
 
 namespace DomainMonitor;
 
-use DateTimeImmutable;
-use DateTimeZone;
 use DomainMonitor\Admin\DashboardWidget;
+use DomainMonitor\Admin\DomainAdminActions;
+use DomainMonitor\Admin\SettingsPage;
+use DomainMonitor\Checks\DnsChecker;
+use DomainMonitor\Checks\DomainCheckRunner;
+use DomainMonitor\Checks\NativeDnsResolver;
+use DomainMonitor\Checks\RdapChecker;
+use DomainMonitor\Checks\WordPressHttpClient;
 use DomainMonitor\Domain\ApexDomain;
+use DomainMonitor\Storage\DomainRecord;
+use DomainMonitor\Storage\DomainRepository;
+use DomainMonitor\Storage\DomainTable;
+use DomainMonitor\Storage\WpdbDomainStore;
+use InvalidArgumentException;
 
 final class Plugin
 {
-    private const OPTION_LAST_MANUAL_CHECK = 'domain_monitor_last_manual_check';
     private const NONCE_ACTION = 'domain_monitor_manual_check';
+    private const ADD_DOMAIN_ACTION = 'domain_monitor_add_domain';
 
     public function register(): void
     {
@@ -19,19 +29,64 @@ final class Plugin
             return;
         }
 
-        add_action('wp_dashboard_setup', function (): void {
-            (new DashboardWidget(
-                $this->currentDomain(),
-                $this->lastManualCheckResult(),
+        add_action('admin_init', function (): void {
+            $this->actions()->ensureAutoDetectedDomain();
+        });
+
+        add_action('admin_menu', function (): void {
+            (new SettingsPage(
+                $this->repository()->all(),
                 $this->adminPostUrl(),
                 $this->manualCheckNonce()
             ))->register();
         });
 
+        add_action('wp_dashboard_setup', function (): void {
+            (new DashboardWidget(
+                $this->currentDomain(),
+                $this->dashboardResult(),
+                $this->adminPostUrl(),
+                $this->manualCheckNonce()
+            ))->register();
+        });
+
+        add_action('admin_post_' . self::ADD_DOMAIN_ACTION, [$this, 'handleAddDomain']);
         add_action('admin_post_domain_monitor_manual_check', [$this, 'handleManualCheck']);
     }
 
+    public function handleAddDomain(): void
+    {
+        $this->verifyAdminAction();
+
+        $domain = isset($_POST['domain_monitor_domain']) ? (string) $this->unslash($_POST['domain_monitor_domain']) : '';
+        try {
+            $this->actions()->addDomain($domain);
+            $this->redirectToSettings('domain_monitor_added=1');
+        } catch (InvalidArgumentException $exception) {
+            $this->redirectToSettings('domain_monitor_error=invalid_domain');
+        }
+    }
+
     public function handleManualCheck(): void
+    {
+        $this->verifyAdminAction();
+
+        $domainId = null;
+        if (isset($_POST['domain_monitor_domain_id'])) {
+            $domainId = max(1, (int) $this->unslash($_POST['domain_monitor_domain_id']));
+        }
+
+        $this->actions()->runManualCheck($domainId);
+
+        $referrer = function_exists('wp_get_referer') ? (string) wp_get_referer() : '';
+        if ($referrer !== '') {
+            $this->redirect($this->addQueryArg('domain_monitor_checked', '1', $referrer));
+        }
+
+        $this->redirect(function_exists('admin_url') ? (string) admin_url('index.php?domain_monitor_checked=1') : '');
+    }
+
+    private function verifyAdminAction(): void
     {
         if (function_exists('check_admin_referer')) {
             check_admin_referer(self::NONCE_ACTION);
@@ -39,30 +94,39 @@ final class Plugin
 
         if (function_exists('current_user_can') && ! current_user_can('manage_options')) {
             if (function_exists('wp_die')) {
-                wp_die('Sorry, you are not allowed to run Domain Monitor checks.');
+                wp_die('Sorry, you are not allowed to manage Domain Monitor.');
             }
 
             return;
         }
+    }
 
-        $domain = $this->currentDomain();
-        $result = [
-            'status' => 'ok',
-            'message' => sprintf('Manual check completed for %s.', $domain),
-            'checked_at' => $this->now(),
-        ];
+    private function actions(): DomainAdminActions
+    {
+        return new DomainAdminActions($this->repository(), $this->checkRunner(), $this->currentHost());
+    }
 
-        if (function_exists('update_option')) {
-            update_option(self::OPTION_LAST_MANUAL_CHECK, $result, false);
-        }
+    private function repository(): DomainRepository
+    {
+        global $wpdb;
 
-        if (function_exists('wp_safe_redirect') && function_exists('admin_url')) {
-            wp_safe_redirect(admin_url('index.php?domain_monitor_checked=1'));
-            exit;
-        }
+        return new DomainRepository(new WpdbDomainStore($wpdb, DomainTable::tableName((string) $wpdb->prefix)));
+    }
+
+    private function checkRunner(): DomainCheckRunner
+    {
+        return new DomainCheckRunner(
+            new DnsChecker(new NativeDnsResolver()),
+            new RdapChecker(new WordPressHttpClient())
+        );
     }
 
     private function currentDomain(): string
+    {
+        return ApexDomain::fromHost($this->currentHost());
+    }
+
+    private function currentHost(): string
     {
         $url = '';
 
@@ -72,32 +136,32 @@ final class Plugin
 
         $host = $url !== '' ? parse_url($url, PHP_URL_HOST) : null;
         if (is_string($host) && $host !== '') {
-            return ApexDomain::fromHost($host);
+            return $host;
         }
 
         if (isset($_SERVER['HTTP_HOST']) && is_string($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== '') {
-            return ApexDomain::fromHost($_SERVER['HTTP_HOST']);
+            return $_SERVER['HTTP_HOST'];
         }
 
-        return 'unknown domain';
+        return 'unknown-domain.invalid';
     }
 
     /** @return array<string,string>|null */
-    private function lastManualCheckResult(): ?array
+    private function dashboardResult(): ?array
     {
-        if (! function_exists('get_option')) {
+        $id = $this->actions()->ensureAutoDetectedDomain();
+        $record = $this->repository()->find($id);
+        if (! $record instanceof DomainRecord || $record->lastCheckedAt() === '') {
             return null;
         }
 
-        $result = get_option(self::OPTION_LAST_MANUAL_CHECK);
-        if (! is_array($result)) {
-            return null;
-        }
+        $status = ($record->dnsStatus() === 'ok' && $record->rdapStatus() === 'ok') ? 'ok' : 'degraded';
+        $message = trim('DNS: ' . $record->dnsMessage() . ' RDAP: ' . $record->rdapMessage());
 
         return [
-            'status' => isset($result['status']) ? (string) $result['status'] : '',
-            'message' => isset($result['message']) ? (string) $result['message'] : '',
-            'checked_at' => isset($result['checked_at']) ? (string) $result['checked_at'] : '',
+            'status' => $status,
+            'message' => $message,
+            'checked_at' => $record->lastCheckedAt(),
         ];
     }
 
@@ -119,13 +183,34 @@ final class Plugin
         return '';
     }
 
-    private function now(): string
+    /** @param mixed $value */
+    private function unslash($value)
     {
-        if (function_exists('current_time')) {
-            return (string) current_time('c');
+        return function_exists('wp_unslash') ? wp_unslash($value) : $value;
+    }
+
+    private function redirectToSettings(string $query): void
+    {
+        $url = function_exists('admin_url') ? (string) admin_url('options-general.php?page=domain-monitor&' . $query) : '';
+        $this->redirect($url);
+    }
+
+    private function redirect(string $url): void
+    {
+        if ($url !== '' && function_exists('wp_safe_redirect')) {
+            wp_safe_redirect($url);
+            exit;
+        }
+    }
+
+    private function addQueryArg(string $key, string $value, string $url): string
+    {
+        if (function_exists('add_query_arg')) {
+            return (string) add_query_arg($key, $value, $url);
         }
 
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DATE_ATOM);
+        $separator = strpos($url, '?') === false ? '?' : '&';
+        return $url . $separator . rawurlencode($key) . '=' . rawurlencode($value);
     }
 
     private function isAdminRequest(): bool
