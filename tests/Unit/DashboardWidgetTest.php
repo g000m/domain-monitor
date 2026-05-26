@@ -38,11 +38,13 @@ final class DashboardWidgetTest extends TestCase
             'status' => 'ok',
             'message' => 'Manual check completed for example.com.',
             'checked_at' => '2026-05-26T21:00:00+00:00',
+            'expires_at' => '2027-01-01T00:00:00Z',
         ], 'https://example.com/wp-admin/admin-post.php', 'nonce-value');
 
         $html = $widget->renderHtml();
 
         self::assertStringContainsString('Status: OK', $html);
+        self::assertStringContainsString('Domain expires: 2027-01-01', $html);
         self::assertStringContainsString('Manual check completed for example.com.', $html);
         self::assertStringContainsString('Last checked: 2026-05-26T21:00:00+00:00', $html);
     }

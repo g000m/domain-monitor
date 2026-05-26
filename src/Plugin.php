@@ -162,6 +162,7 @@ final class Plugin
             'status' => $status,
             'message' => $message,
             'checked_at' => $record->lastCheckedAt(),
+            'expires_at' => $record->rdapExpiresAt(),
         ];
     }
 

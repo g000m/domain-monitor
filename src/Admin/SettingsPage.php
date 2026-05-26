@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace DomainMonitor\Admin;
 
+use DomainMonitor\Domain\ExpirationDate;
 use DomainMonitor\Storage\DomainRecord;
 
 final class SettingsPage
@@ -79,6 +80,7 @@ HTML;
         $dns = $this->escapeHtml(strtoupper($record->dnsStatus()));
         $rdap = $this->escapeHtml(strtoupper($record->rdapStatus()));
         $dnsMessage = $record->dnsMessage() !== '' ? '<p>' . $this->escapeHtml($record->dnsMessage()) . '</p>' : '';
+        $expiration = '<p>Domain expires: ' . $this->escapeHtml(ExpirationDate::label($record->rdapExpiresAt())) . '</p>';
         $rdapMessage = $record->rdapMessage() !== '' ? '<p>' . $this->escapeHtml($record->rdapMessage()) . '</p>' : '';
         $checkedAt = $record->lastCheckedAt() !== '' ? '<p>Last checked: ' . $this->escapeHtml($record->lastCheckedAt()) . '</p>' : '';
         $form = $this->manualCheckFormHtml($record->id());
@@ -90,6 +92,7 @@ HTML;
     <p><strong>DNS: {$dns}</strong></p>
     {$dnsMessage}
     <p><strong>RDAP: {$rdap}</strong></p>
+    {$expiration}
     {$rdapMessage}
     {$checkedAt}
     {$form}

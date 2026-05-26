@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace DomainMonitor\Admin;
 
+use DomainMonitor\Domain\ExpirationDate;
+
 final class DashboardWidget
 {
     private string $domain;
@@ -45,6 +47,7 @@ final class DashboardWidget
         $domain = $this->escapeHtml($this->domain);
         $status = $this->statusLabel();
         $message = $this->messageHtml();
+        $expiration = $this->expirationHtml();
         $checkedAt = $this->checkedAtHtml();
         $form = $this->manualCheckFormHtml();
 
@@ -52,6 +55,7 @@ final class DashboardWidget
 <div class="domain-monitor-widget">
     <p><strong>Monitored domain:</strong> {$domain}</p>
     <p><strong>Status: {$status}</strong></p>
+    {$expiration}
     {$message}
     {$checkedAt}
     {$form}
@@ -82,6 +86,13 @@ HTML;
         }
 
         return '<p>Last checked: ' . $this->escapeHtml((string) $this->lastResult['checked_at']) . '</p>';
+    }
+
+    private function expirationHtml(): string
+    {
+        $expiresAt = $this->lastResult['expires_at'] ?? '';
+
+        return '<p>Domain expires: ' . $this->escapeHtml(ExpirationDate::label((string) $expiresAt)) . '</p>';
     }
 
     private function manualCheckFormHtml(): string

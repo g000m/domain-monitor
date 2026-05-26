@@ -39,6 +39,7 @@ final class SettingsPageTest extends TestCase
                 'dns_message' => 'DNS has A records.',
                 'rdap_status' => 'degraded',
                 'rdap_message' => 'RDAP lookup failed.',
+                'rdap_expires_at' => '2027-01-01T00:00:00Z',
                 'last_checked_at' => '2026-05-26 21:30:00',
             ]),
         ], 'https://example.test/wp-admin/admin-post.php', 'nonce-value');
@@ -48,6 +49,7 @@ final class SettingsPageTest extends TestCase
         self::assertStringContainsString('example.net', $html);
         self::assertStringContainsString('DNS: OK', $html);
         self::assertStringContainsString('RDAP: DEGRADED', $html);
+        self::assertStringContainsString('Domain expires: 2027-01-01', $html);
         self::assertStringContainsString('DNS has A records.', $html);
         self::assertStringContainsString('RDAP lookup failed.', $html);
         self::assertStringContainsString('Last checked: 2026-05-26 21:30:00', $html);
