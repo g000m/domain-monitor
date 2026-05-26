@@ -23,3 +23,9 @@ $domain_monitor_autoload = __DIR__ . '/vendor/autoload.php';
 if (file_exists($domain_monitor_autoload)) {
     require_once $domain_monitor_autoload;
 }
+
+add_action('plugins_loaded', static function (): void {
+    if (class_exists(\DomainMonitor\Plugin::class)) {
+        (new \DomainMonitor\Plugin())->register();
+    }
+});
