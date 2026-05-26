@@ -6,11 +6,11 @@ namespace DomainMonitor\Storage;
 final class DomainTable
 {
     public const OPTION_SCHEMA_VERSION = 'domain_monitor_schema_version';
-    public const SCHEMA_VERSION = '1';
+    public const SCHEMA_VERSION = '2';
 
     public static function tableName(string $prefix): string
     {
-        return $prefix . 'domain_monitor_domains';
+        return $prefix . 'domainmon_domains';
     }
 
     public static function schemaSql(string $tableName, string $collate): string
@@ -27,19 +27,26 @@ final class DomainTable
         return "CREATE TABLE {$tableName} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             domain varchar(253) NOT NULL,
+            domain_hash char(64) NOT NULL,
             source varchar(20) NOT NULL DEFAULT 'manual',
-            dns_status varchar(20) NOT NULL DEFAULT 'unknown',
-            dns_message text NULL,
-            rdap_status varchar(20) NOT NULL DEFAULT 'unknown',
-            rdap_message text NULL,
-            rdap_registrar varchar(255) NULL,
-            rdap_expires_at varchar(40) NULL,
+            is_self tinyint(1) NOT NULL DEFAULT 0,
+            is_active tinyint(1) NOT NULL DEFAULT 1,
+            owner_site_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            rdap_tier tinyint(3) unsigned NOT NULL DEFAULT 0,
+            status tinyint(3) unsigned NOT NULL DEFAULT 1,
+            status_reason varchar(191) NOT NULL DEFAULT '',
+            snapshot mediumtext NULL,
+            last_known_good_snapshot mediumtext NULL,
             last_checked_at datetime NULL,
+            next_due_at datetime NULL,
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY  (id),
-            UNIQUE KEY domain (domain),
-            KEY last_checked_at (last_checked_at)
+            UNIQUE KEY domain_hash (domain_hash),
+            KEY next_due_at (next_due_at),
+            KEY status (status),
+            KEY is_active (is_active),
+            KEY owner_site_id (owner_site_id)
         ){$collation};";
     }
 }

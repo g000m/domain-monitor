@@ -18,9 +18,10 @@ final class WpdbDomainStore implements DomainStore
 
     public function upsertDomain(string $domain, string $source): int
     {
+        $hash = hash('sha256', $domain);
         $existing = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT id FROM {$this->tableName} WHERE domain = %s LIMIT 1",
-            $domain
+            "SELECT id FROM {$this->tableName} WHERE domain_hash = %s LIMIT 1",
+            $hash
         ));
 
         if ($existing !== null) {
@@ -30,14 +31,18 @@ final class WpdbDomainStore implements DomainStore
         $now = $this->now();
         $this->wpdb->insert($this->tableName, [
             'domain' => $domain,
+            'domain_hash' => $hash,
             'source' => $source,
-            'dns_status' => 'unknown',
-            'dns_message' => '',
-            'rdap_status' => 'unknown',
-            'rdap_message' => '',
-            'rdap_registrar' => null,
-            'rdap_expires_at' => null,
+            'is_self' => $source === 'auto' ? 1 : 0,
+            'is_active' => 1,
+            'owner_site_id' => 0,
+            'rdap_tier' => 0,
+            'status' => 1,
+            'status_reason' => '',
+            'snapshot' => null,
+            'last_known_good_snapshot' => null,
             'last_checked_at' => null,
+            'next_due_at' => null,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -67,29 +72,24 @@ final class WpdbDomainStore implements DomainStore
 
     public function saveCheckResult(int $id, array $result): void
     {
-        $allowed = [
-            'dns_status',
-            'dns_message',
-            'rdap_status',
-            'rdap_message',
-            'rdap_registrar',
-            'rdap_expires_at',
-            'last_checked_at',
-        ];
-        $data = [];
-
-        foreach ($allowed as $key) {
-            if (array_key_exists($key, $result)) {
-                $data[$key] = $result[$key];
-            }
+        $record = $this->find($id);
+        if ($record === null) {
+            return;
         }
 
-        $data['updated_at'] = $this->now();
+        $snapshot = ArrayDomainStore::snapshotFromResult((string) ($record['domain'] ?? ''), $result);
+        $data = [
+            'snapshot' => $this->encodeJson($snapshot),
+            'status' => ArrayDomainStore::statusFromResult($result),
+            'status_reason' => ArrayDomainStore::statusReasonFromResult($result),
+            'last_checked_at' => $result['last_checked_at'] ?? null,
+            'updated_at' => $this->now(),
+        ];
 
         $this->wpdb->update($this->tableName, $data, ['id' => $id]);
     }
 
-    /** @return array<string,string|int|null> */
+    /** @return array<string,mixed> */
     private function rowToArray($row): array
     {
         if (is_array($row)) {
@@ -101,6 +101,16 @@ final class WpdbDomainStore implements DomainStore
         }
 
         return [];
+    }
+
+    /** @param array<string,mixed> $value */
+    private function encodeJson(array $value): string
+    {
+        if (function_exists('wp_json_encode')) {
+            return (string) wp_json_encode($value);
+        }
+
+        return (string) json_encode($value);
     }
 
     private function now(): string

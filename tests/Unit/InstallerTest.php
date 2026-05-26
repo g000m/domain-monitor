@@ -26,8 +26,8 @@ final class InstallerTest extends TestCase
         $installer->install();
 
         self::assertCount(1, $dbDeltaCalls);
-        self::assertStringContainsString('CREATE TABLE wp_domain_monitor_domains', $dbDeltaCalls[0]);
-        self::assertSame('1', $options['domain_monitor_schema_version']);
+        self::assertStringContainsString('CREATE TABLE wp_domainmon_domains', $dbDeltaCalls[0]);
+        self::assertSame('2', $options['domain_monitor_schema_version']);
     }
 }
 
