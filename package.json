@@ -7,9 +7,9 @@
     "wp-env:start": "wp-env start",
     "wp-env:stop": "wp-env stop",
     "wp-env:destroy": "wp-env destroy",
-    "wp-env:composer": "wp-env run cli composer install",
-    "test:unit": "wp-env run cli composer test:unit",
-    "test": "wp-env run cli composer test"
+    "wp-env:composer": "wp-env run cli --env-cwd=wp-content/plugins/domain-monitor composer install",
+    "test:unit": "wp-env run cli --env-cwd=wp-content/plugins/domain-monitor composer test:unit",
+    "test": "wp-env run cli --env-cwd=wp-content/plugins/domain-monitor composer test"
   },
   "devDependencies": {
     "@wordpress/env": "^10.0.0"
