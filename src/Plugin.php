@@ -99,12 +99,11 @@ final class Plugin
         });
 
         add_action('wp_dashboard_setup', function (): void {
-            (new DashboardWidget(
-                $this->currentDomain(),
-                $this->dashboardResult(),
+            DashboardWidget::fromDomains(
+                $this->allDomainSummaries(),
                 $this->adminPostUrl(),
                 $this->manualCheckNonce()
-            ))->register();
+            )->register();
         });
 
         add_action('admin_notices', [$this, 'handleAdminNotices']);
@@ -617,6 +616,56 @@ final class Plugin
         }
 
         return 'unknown-domain.invalid';
+    }
+
+    /**
+     * Build the list of domain summaries for the multi-domain dashboard widget.
+     * Each entry maps the minimal data the widget needs: domain, status, message,
+     * checked_at, expires_at.
+     *
+     * @return list<array<string,string>>
+     */
+    private function allDomainSummaries(): array
+    {
+        // Ensure the auto-detected domain is seeded before we enumerate.
+        $this->actions()->ensureAutoDetectedDomain();
+
+        $records    = $this->repository()->all();
+        $summaries  = [];
+
+        foreach ($records as $record) {
+            if (! $record->isActive()) {
+                continue;
+            }
+
+            if ($record->lastCheckedAt() === '') {
+                $summaries[] = [
+                    'domain'     => $record->domain(),
+                    'status'     => '',
+                    'message'    => '',
+                    'checked_at' => '',
+                    'expires_at' => '',
+                ];
+                continue;
+            }
+
+            $calculator  = new \DomainMonitor\Domain\StatusCalculator();
+            $domainStatus = $calculator->calculate(
+                $record->snapshot(),
+                $this->alertsForRecord($record),
+                new \DateTimeImmutable()
+            );
+
+            $summaries[] = [
+                'domain'     => $record->domain(),
+                'status'     => $domainStatus->code(),
+                'message'    => $domainStatus->message(),
+                'checked_at' => $record->lastCheckedAt(),
+                'expires_at' => $record->rdapExpiresAt(),
+            ];
+        }
+
+        return $summaries;
     }
 
     /** @return array<string,string>|null */

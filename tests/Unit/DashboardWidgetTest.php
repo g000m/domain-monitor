@@ -16,7 +16,7 @@ final class DashboardWidgetTest extends TestCase
 
         self::assertStringContainsString('Domain Monitor', $html);
         self::assertStringContainsString('example.com', $html);
-        self::assertStringContainsString('Status: Not checked yet', $html);
+        self::assertStringContainsString('Not checked yet', $html);
         self::assertStringContainsString('Run manual check', $html);
     }
 
@@ -43,7 +43,8 @@ final class DashboardWidgetTest extends TestCase
 
         $html = $widget->renderHtml();
 
-        self::assertStringContainsString('Status: OK', $html);
+        self::assertStringContainsString('domain-monitor-pill--ok', $html);
+        self::assertStringContainsString('OK', $html);
         self::assertStringContainsString('Domain expires: 2027-01-01', $html);
         self::assertStringContainsString('Manual check completed for example.com.', $html);
         self::assertStringContainsString('Last checked: 2026-05-26T21:00:00+00:00', $html);

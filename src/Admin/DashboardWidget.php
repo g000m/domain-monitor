@@ -7,21 +7,55 @@ use DomainMonitor\Domain\ExpirationDate;
 
 final class DashboardWidget
 {
-    private string $domain;
-
-    /** @var array<string,string>|null */
-    private ?array $lastResult;
+    /**
+     * List of domain summaries for multi-domain rendering.
+     * Each entry: ['domain'=>string, 'status'=>string, 'message'=>string, 'checked_at'=>string, 'expires_at'=>string]
+     *
+     * @var list<array<string,string>>
+     */
+    private array $domainRows;
 
     private string $actionUrl;
     private string $nonce;
 
-    /** @param array<string,string>|null $lastResult */
+    /**
+     * Legacy single-domain constructor path (kept for back-compat with existing tests).
+     * Production code should call DashboardWidget::fromDomains() instead.
+     *
+     * @param array<string,string>|null $lastResult
+     */
     public function __construct(string $domain, ?array $lastResult = null, string $actionUrl = '', string $nonce = '')
     {
-        $this->domain = $domain;
-        $this->lastResult = $lastResult;
         $this->actionUrl = $actionUrl;
-        $this->nonce = $nonce;
+        $this->nonce     = $nonce;
+
+        if ($domain === '') {
+            $this->domainRows = [];
+            return;
+        }
+
+        // Wrap single-domain data into the unified list format.
+        $this->domainRows = [
+            [
+                'domain'     => $domain,
+                'status'     => $lastResult !== null ? (string) ($lastResult['status'] ?? '') : '',
+                'message'    => (string) ($lastResult['message'] ?? ''),
+                'checked_at' => $lastResult !== null ? (string) ($lastResult['checked_at'] ?? '') : '',
+                'expires_at' => $lastResult !== null ? (string) ($lastResult['expires_at'] ?? '') : '',
+            ],
+        ];
+    }
+
+    /**
+     * Named constructor for multi-domain mode used by Plugin.php.
+     *
+     * @param list<array<string,string>> $domainRows Each row: domain, status, message, checked_at, expires_at.
+     */
+    public static function fromDomains(array $domainRows, string $actionUrl = '', string $nonce = ''): self
+    {
+        $widget             = new self('__bypass__', null, $actionUrl, $nonce);
+        $widget->domainRows = $domainRows;
+        return $widget;
     }
 
     public function register(): void
@@ -44,15 +78,47 @@ final class DashboardWidget
 
     public function renderHtml(): string
     {
-        if ($this->domain === '') {
+        if ($this->domainRows === []) {
             return $this->devNoticeHtml();
         }
 
-        $domain     = $this->escapeHtml($this->domain);
-        $status     = $this->statusLabel();
-        $message    = $this->messageHtml();
-        $expiration = $this->expirationHtml();
-        $checkedAt  = $this->checkedAtHtml();
+        // Single-domain legacy path: preserve the detailed original layout.
+        if (count($this->domainRows) === 1) {
+            return $this->renderSingleDomain($this->domainRows[0]);
+        }
+
+        return $this->renderMultiDomain();
+    }
+
+    // -----------------------------------------------------------------
+    // Private rendering helpers
+    // -----------------------------------------------------------------
+
+    /**
+     * Rendered when no monitorable domain has been detected (local/dev environment).
+     */
+    private function devNoticeHtml(): string
+    {
+        $message = $this->escapeHtml($this->translate(
+            'No public domain detected. This site appears to be a local or development environment. '
+            . 'Add a domain below, or define DOMAIN_MONITOR_PRIMARY_DOMAIN in wp-config.php.'
+        ));
+
+        return '<div class="domain-monitor-widget"><p class="domain-monitor-dev-notice">' . $message . '</p></div>';
+    }
+
+    /**
+     * Original single-domain detailed layout — unchanged so existing behaviour is preserved.
+     *
+     * @param array<string,string> $row
+     */
+    private function renderSingleDomain(array $row): string
+    {
+        $domain     = $this->escapeHtml($row['domain']);
+        $status     = $this->statusPill($row['status']);
+        $message    = $this->rowMessageHtml($row['message']);
+        $expiration = $this->rowExpirationHtml($row['expires_at']);
+        $checkedAt  = $this->rowCheckedAtHtml($row['checked_at']);
         $form       = $this->manualCheckFormHtml();
 
         $monitoredLabel = $this->escapeHtml($this->translate('Monitored domain:'));
@@ -71,52 +137,116 @@ HTML;
     }
 
     /**
-     * Rendered when no monitorable domain has been detected (local/dev environment).
+     * Compact list layout for two or more domains.
      */
-    private function devNoticeHtml(): string
+    private function renderMultiDomain(): string
     {
-        $message = $this->escapeHtml($this->translate(
-            'No public domain detected. This site appears to be a local or development environment. '
-            . 'Add a domain below, or define DOMAIN_MONITOR_PRIMARY_DOMAIN in wp-config.php.'
-        ));
+        $rows = '';
+        foreach ($this->domainRows as $row) {
+            $domain    = $this->escapeHtml($row['domain']);
+            $pill      = $this->statusPill($row['status']);
+            $expiresAt = $row['expires_at'] ?? '';
+            $expiry    = $this->escapeHtml(ExpirationDate::label($expiresAt));
 
-        return '<div class="domain-monitor-widget"><p class="domain-monitor-dev-notice">' . $message . '</p></div>';
-    }
+            $daysLeft = '';
+            if ($expiresAt !== '') {
+                try {
+                    $diff     = (new \DateTimeImmutable($expiresAt))->diff(new \DateTimeImmutable());
+                    $days     = (int) $diff->days;
+                    $daysLeft = $diff->invert
+                        ? $this->escapeHtml(sprintf($this->translate('%d days'), $days))
+                        : $this->escapeHtml($this->translate('Expired'));
+                } catch (\Exception $e) {
+                    // Leave $daysLeft empty.
+                }
+            }
 
-    private function statusLabel(): string
-    {
-        if ($this->lastResult === null || ($this->lastResult['status'] ?? '') === '') {
-            return $this->escapeHtml($this->translate('Not checked yet'));
+            $daysHtml = $daysLeft !== '' ? '<td class="domain-monitor-days">' . $daysLeft . '</td>' : '<td></td>';
+
+            $rows .= <<<HTML
+<tr class="domain-monitor-row">
+    <td class="domain-monitor-domain-name">{$domain}</td>
+    <td class="domain-monitor-status">{$pill}</td>
+    <td class="domain-monitor-expiry">{$expiry}</td>
+    {$daysHtml}
+</tr>
+HTML;
         }
 
-        // Status codes (ok/warn/fail) are machine values; display them uppercased but not translated.
-        return strtoupper($this->escapeHtml((string) $this->lastResult['status']));
+        $domainHeader  = $this->escapeHtml($this->translate('Domain'));
+        $statusHeader  = $this->escapeHtml($this->translate('Status'));
+        $expiryHeader  = $this->escapeHtml($this->translate('Expires'));
+        $daysHeader    = $this->escapeHtml($this->translate('Days'));
+        $form          = $this->manualCheckFormHtml();
+
+        return <<<HTML
+<div class="domain-monitor-widget domain-monitor-widget--multi">
+    <table class="domain-monitor-table widefat">
+        <thead>
+            <tr>
+                <th>{$domainHeader}</th>
+                <th>{$statusHeader}</th>
+                <th>{$expiryHeader}</th>
+                <th>{$daysHeader}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {$rows}
+        </tbody>
+    </table>
+    {$form}
+</div>
+HTML;
     }
 
-    private function messageHtml(): string
+    /**
+     * Render a coloured status pill for a status code (ok/warn/fail/empty).
+     * Reuses status->label/colour logic from DomainStatus without duplicating it.
+     */
+    private function statusPill(string $status): string
     {
-        $message = $this->lastResult['message']
-            ?? $this->translate('Domain Monitor is active. Run a manual check to capture the first proof-of-concept result.');
+        if ($status === '') {
+            return '<span class="domain-monitor-pill domain-monitor-pill--unknown">'
+                . $this->escapeHtml($this->translate('Not checked yet'))
+                . '</span>';
+        }
 
-        return '<p>' . $this->escapeHtml((string) $message) . '</p>';
+        $cssClass = match ($status) {
+            'ok'   => 'domain-monitor-pill--ok',
+            'warn' => 'domain-monitor-pill--warn',
+            'fail' => 'domain-monitor-pill--fail',
+            default => 'domain-monitor-pill--unknown',
+        };
+
+        return '<span class="domain-monitor-pill ' . $this->escapeAttribute($cssClass) . '">'
+            . strtoupper($this->escapeHtml($status))
+            . '</span>';
     }
 
-    private function checkedAtHtml(): string
+    /** @param string $message */
+    private function rowMessageHtml(string $message): string
     {
-        if ($this->lastResult === null || ($this->lastResult['checked_at'] ?? '') === '') {
+        if ($message === '') {
+            $message = $this->translate('Domain Monitor is active. Run a manual check to capture the first proof-of-concept result.');
+        }
+
+        return '<p>' . $this->escapeHtml($message) . '</p>';
+    }
+
+    private function rowCheckedAtHtml(string $checkedAt): string
+    {
+        if ($checkedAt === '') {
             return '';
         }
 
         $label = $this->escapeHtml($this->translate('Last checked:'));
-        return '<p>' . $label . ' ' . $this->escapeHtml((string) $this->lastResult['checked_at']) . '</p>';
+        return '<p>' . $label . ' ' . $this->escapeHtml($checkedAt) . '</p>';
     }
 
-    private function expirationHtml(): string
+    private function rowExpirationHtml(string $expiresAt): string
     {
-        $expiresAt = $this->lastResult['expires_at'] ?? '';
-        $label     = $this->escapeHtml($this->translate('Domain expires:'));
-
-        return '<p>' . $label . ' ' . $this->escapeHtml(ExpirationDate::label((string) $expiresAt)) . '</p>';
+        $label = $this->escapeHtml($this->translate('Domain expires:'));
+        return '<p>' . $label . ' ' . $this->escapeHtml(ExpirationDate::label($expiresAt)) . '</p>';
     }
 
     private function manualCheckFormHtml(): string
