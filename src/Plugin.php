@@ -7,6 +7,7 @@ use DateTimeImmutable;
 use DomainMonitor\Admin\DashboardWidget;
 use DomainMonitor\Admin\DomainAdminActions;
 use DomainMonitor\Admin\SettingsPage;
+use DomainMonitor\Alerts\AlertResolver;
 use DomainMonitor\Checks\DnsChecker;
 use DomainMonitor\Checks\CheckRunner;
 use DomainMonitor\Checks\DomainCheckRunner;
@@ -19,6 +20,7 @@ use DomainMonitor\Diff\SnapshotDiffer;
 use DomainMonitor\Domain\StatusCalculator;
 use DomainMonitor\Notifications\AdminNotifier;
 use DomainMonitor\Notifications\DomainNotifier;
+use DomainMonitor\Settings\PluginSettings;
 use DomainMonitor\Storage\AlertStore;
 use DomainMonitor\Storage\ArrayAlertStore;
 use DomainMonitor\Storage\ArrayDomainStore;
@@ -31,10 +33,12 @@ use InvalidArgumentException;
 
 final class Plugin
 {
-    private const NONCE_ACTION_MANUAL_CHECK = 'domain_monitor_manual_check';
-    private const NONCE_ACTION_ADD_DOMAIN   = 'domain_monitor_add_domain_form';
-    private const ADD_DOMAIN_ACTION         = 'domain_monitor_add_domain';
-    private const CRON_HOOK                 = 'domain_monitor_daily_check';
+    private const NONCE_ACTION_MANUAL_CHECK    = 'domain_monitor_manual_check';
+    private const NONCE_ACTION_ADD_DOMAIN      = 'domain_monitor_add_domain_form';
+    private const NONCE_ACTION_SAVE_SETTINGS   = 'domain_monitor_save_settings_form';
+    private const NONCE_ACTION_RESOLVE_ALERT   = 'domain_monitor_resolve_alert_form';
+    private const ADD_DOMAIN_ACTION            = 'domain_monitor_add_domain';
+    private const CRON_HOOK                    = 'domain_monitor_daily_check';
 
     /** @var DomainRepository|null */
     private $injectedRepository = null;
@@ -44,6 +48,8 @@ final class Plugin
     private $injectedNotifier = null;
     /** @var AlertStore|null */
     private $injectedAlertStore = null;
+    /** @var PluginSettings|null */
+    private $injectedSettings = null;
 
     /**
      * Optional constructor injection for testability.
@@ -53,12 +59,14 @@ final class Plugin
         ?DomainRepository $repository = null,
         ?CheckRunner $checkRunner = null,
         ?DomainNotifier $notifier = null,
-        ?AlertStore $alertStore = null
+        ?AlertStore $alertStore = null,
+        ?PluginSettings $settings = null
     ) {
         $this->injectedRepository  = $repository;
         $this->injectedCheckRunner = $checkRunner;
         $this->injectedNotifier    = $notifier;
         $this->injectedAlertStore  = $alertStore;
+        $this->injectedSettings    = $settings;
     }
 
     public function register(): void
@@ -77,11 +85,16 @@ final class Plugin
         });
 
         add_action('admin_menu', function (): void {
+            $allOpenAlerts = $this->allOpenAlertsWithDomain();
             (new SettingsPage(
                 $this->repository()->all(),
                 $this->adminPostUrl(),
                 $this->manualCheckNonce(),
-                $this->addDomainNonce()
+                $this->addDomainNonce(),
+                $this->saveSettingsNonce(),
+                $this->resolveAlertNonce(),
+                $this->pluginSettings(),
+                $allOpenAlerts
             ))->register();
         });
 
@@ -98,6 +111,8 @@ final class Plugin
 
         add_action('admin_post_' . self::ADD_DOMAIN_ACTION, [$this, 'handleAddDomain']);
         add_action('admin_post_domain_monitor_manual_check', [$this, 'handleManualCheck']);
+        add_action('admin_post_domain_monitor_save_settings', [$this, 'handleSaveSettings']);
+        add_action('admin_post_domain_monitor_resolve_alert', [$this, 'handleResolveAlert']);
     }
 
     // -----------------------------------------------------------------
@@ -134,6 +149,50 @@ final class Plugin
         }
 
         $this->redirect(function_exists('admin_url') ? (string) admin_url('index.php?domain_monitor_checked=1') : '');
+    }
+
+    public function handleSaveSettings(): void
+    {
+        $this->verifyAdminAction(self::NONCE_ACTION_SAVE_SETTINGS);
+
+        $raw = [
+            'notify_status_change'        => isset($_POST['notify_status_change']),
+            'notify_ns_changed'           => isset($_POST['notify_ns_changed']),
+            'notify_a_changed'            => isset($_POST['notify_a_changed']),
+            'notify_mx_changed'           => isset($_POST['notify_mx_changed']),
+            'notify_transfer_lock_removed' => isset($_POST['notify_transfer_lock_removed']),
+            'notification_email'          => '',
+        ];
+
+        if (isset($_POST['notification_email'])) {
+            $emailInput = (string) $this->unslash($_POST['notification_email']);
+            if (function_exists('is_email') && function_exists('sanitize_email')) {
+                $raw['notification_email'] = is_email($emailInput) ? (string) sanitize_email($emailInput) : '';
+            } else {
+                $raw['notification_email'] = filter_var($emailInput, FILTER_VALIDATE_EMAIL) !== false ? $emailInput : '';
+            }
+        }
+
+        if (function_exists('update_option')) {
+            update_option(PluginSettings::OPTION_NAME, $raw);
+        }
+
+        $this->redirectToSettings('domain_monitor_settings_saved=1');
+    }
+
+    public function handleResolveAlert(): void
+    {
+        $this->verifyAdminAction(self::NONCE_ACTION_RESOLVE_ALERT);
+
+        if (! isset($_POST['domain_monitor_alert_id'])) {
+            $this->redirectToSettings('');
+            return;
+        }
+
+        $alertId = max(1, (int) $this->unslash($_POST['domain_monitor_alert_id']));
+        $this->alertStore()->resolveAlert($alertId, $this->nowMysql());
+
+        $this->redirectToSettings('domain_monitor_alert_resolved=1');
     }
 
     public function handleDailyCheck(): void
@@ -215,12 +274,25 @@ final class Plugin
             return;
         }
 
-        // Diff snapshots and create alerts.
+        // Diff snapshots and create new alerts.
         $this->processAlerts($record->id(), $previousSnapshot, $fresh->snapshot(), $previousTransferLocked, $fresh);
+
+        // Auto-resolve alerts whose triggering condition has reverted.
+        // Run after processAlerts so newly-created alerts are not immediately resolved.
+        (new AlertResolver($this->alertStore()))->resolveReverted(
+            $record->id(),
+            $fresh->snapshot(),
+            $fresh->rdapTransferLocked(),
+            $this->nowMysql()
+        );
 
         $newStatus = $fresh->statusCode($this->alertsForRecord($fresh));
         if ($this->isWorseStatus($previousStatus, $newStatus)) {
-            if ($this->shouldNotify('status_change', $fresh, ['from' => $previousStatus, 'to' => $newStatus])) {
+            // Build open_alert_types context for attribution in shouldNotify.
+            $openAlerts      = $this->alertStore()->openAlertsForDomain($record->id());
+            $openAlertTypes  = array_values(array_unique(array_column($openAlerts, 'type')));
+            $notifyContext   = ['from' => $previousStatus, 'to' => $newStatus, 'open_alert_types' => $openAlertTypes];
+            if ($this->shouldNotify('status_change', $fresh, $notifyContext)) {
                 $this->notifier()->notifyStatusChange($fresh, $previousStatus, $newStatus);
             }
         }
@@ -253,20 +325,39 @@ final class Plugin
         $oldApex = $oldSnapshot['dns']['apex'] ?? null;
         $hasRichOldSnapshot = $oldSnapshot !== [] && is_array($oldApex) && $oldApex !== [];
         if ($hasRichOldSnapshot) {
+            // Index existing open alert types to avoid creating duplicates.
+            // When an alert of a given type already exists (e.g. ns_changed is open
+            // because the NS was changed to attacker values), we do not create a second
+            // alert for the same type. This also prevents a "revert" diff from generating
+            // a new alert when AlertResolver is about to resolve the existing one.
+            $existingOpenTypes = array_flip(array_column(
+                $this->alertStore()->openAlertsForDomain($domainId),
+                'type'
+            ));
+
             $diffs = (new SnapshotDiffer())->diff($oldSnapshot, $newSnapshot);
             foreach ($diffs as $diff) {
                 $recordType = $diff->recordType();
 
                 if ($recordType === 'ns') {
-                    $this->alertStore()->createAlert($domainId, 'ns_changed', $diff->message());
+                    if (! isset($existingOpenTypes['ns_changed'])) {
+                        $previous = $oldSnapshot['dns']['apex']['ns'] ?? [];
+                        $this->alertStore()->createAlert($domainId, 'ns_changed', $diff->message(), ['previous' => $previous]);
+                    }
                     // NS change is the hijack signal: always notify.
                     if ($this->shouldNotify('ns_changed', $fresh, ['message' => $diff->message()])) {
                         $this->notifier()->notifyStatusChange($fresh, 'ok', StatusCalculator::STATUS_WARN);
                     }
                 } elseif ($recordType === 'a') {
-                    $this->alertStore()->createAlert($domainId, 'a_changed', $diff->message());
+                    if (! isset($existingOpenTypes['a_changed'])) {
+                        $previous = $oldSnapshot['dns']['apex']['a'] ?? [];
+                        $this->alertStore()->createAlert($domainId, 'a_changed', $diff->message(), ['previous' => $previous]);
+                    }
                 } elseif ($recordType === 'mx') {
-                    $this->alertStore()->createAlert($domainId, 'mx_changed', $diff->message());
+                    if (! isset($existingOpenTypes['mx_changed'])) {
+                        $previous = $oldSnapshot['dns']['apex']['mx'] ?? [];
+                        $this->alertStore()->createAlert($domainId, 'mx_changed', $diff->message(), ['previous' => $previous]);
+                    }
                 }
                 // Other record types (aaaa, cname) get no dedicated alert in v1.
             }
@@ -285,16 +376,33 @@ final class Plugin
     /**
      * Returns true when a notification should be dispatched.
      *
-     * Applies the domain_monitor_should_notify filter when apply_filters is
-     * available, defaulting to true. The $type values are:
+     * Consults PluginSettings first (settings override defaults to true for all
+     * types). The domain_monitor_should_notify filter is applied last so external
+     * code can always override the result.
+     *
+     * $type values:
      *   'status_change'        -- domain status worsened
      *   'ns_changed'           -- nameserver change detected
      *   'transfer_lock_removed' -- domain transfer lock was removed
+     *
+     * For 'status_change', the context may carry an 'open_alert_types' key
+     * (list<string>) that allows attributing the worsening to specific alert types
+     * (a_changed / mx_changed). When all open alerts are exclusively a_changed or
+     * mx_changed, the per-type setting is checked instead of notify_status_change.
+     * If multiple types are present, the notification fires if ANY of the applicable
+     * settings is enabled.
      *
      * @param array<string,mixed> $context Additional context (e.g. from/to status or diff message).
      */
     protected function shouldNotify(string $type, DomainRecord $record, array $context): bool
     {
+        $settings = $this->pluginSettings();
+        $enabled  = $this->isEnabledBySettings($type, $context, $settings);
+
+        if (! $enabled) {
+            return false;
+        }
+
         if (function_exists('apply_filters')) {
             /** @var mixed $result */
             $result = apply_filters('domain_monitor_should_notify', true, $type, $record, $context);
@@ -302,6 +410,50 @@ final class Plugin
         }
 
         return true;
+    }
+
+    /**
+     * Check whether the notification is allowed by the current PluginSettings.
+     *
+     * @param array<string,mixed> $context
+     */
+    private function isEnabledBySettings(string $type, array $context, PluginSettings $settings): bool
+    {
+        switch ($type) {
+            case 'ns_changed':
+                return $settings->notifyNsChanged();
+
+            case 'transfer_lock_removed':
+                return $settings->notifyTransferLockRemoved();
+
+            case 'status_change':
+                // If the context carries open_alert_types, use them for attribution.
+                // When ALL open alerts are a_changed/mx_changed types (no ns_changed or
+                // other types), check per-record-type settings instead of notify_status_change.
+                $openTypes = $context['open_alert_types'] ?? null;
+                if (is_array($openTypes) && count($openTypes) > 0) {
+                    $attributable = ['a_changed', 'mx_changed'];
+                    $unique = array_unique($openTypes);
+                    $allAttributable = count(array_diff($unique, $attributable)) === 0;
+
+                    if ($allAttributable) {
+                        // Gate on per-type settings; pass if ANY enabled type is present.
+                        $hasA  = in_array('a_changed', $unique, true);
+                        $hasMx = in_array('mx_changed', $unique, true);
+                        if ($hasA && $settings->notifyAChanged()) {
+                            return true;
+                        }
+                        if ($hasMx && $settings->notifyMxChanged()) {
+                            return true;
+                        }
+                        return false;
+                    }
+                }
+                return $settings->notifyStatusChange();
+
+            default:
+                return true;
+        }
     }
 
     private function verifyAdminAction(string $nonceAction): void
@@ -358,22 +510,36 @@ final class Plugin
             return $this->injectedNotifier;
         }
 
-        return new AdminNotifier();
+        return new AdminNotifier($this->pluginSettings());
+    }
+
+    private function pluginSettings(): PluginSettings
+    {
+        if ($this->injectedSettings !== null) {
+            return $this->injectedSettings;
+        }
+
+        return PluginSettings::fromWordPress();
     }
 
     /**
-     * Fetch open alerts for a domain record and normalize them to the shape
-     * StatusCalculator expects: each row gains `is_active => true` (all rows
-     * returned by openAlertsForDomain are unresolved) and `severity => 'warn'`
-     * when no severity column is stored.
+     * Fetch open and recently-resolved alerts for a domain record, normalized to
+     * the shape StatusCalculator expects.
+     *
+     * Open alerts get is_active=true. Recently-resolved alerts (within 3 days) get
+     * is_active=false with their resolved_at preserved so StatusCalculator's 3-day
+     * amber persistence path fires correctly.
      *
      * @return list<array<string,mixed>>
      */
     private function alertsForRecord(DomainRecord $record): array
     {
-        $raw = $this->alertStore()->openAlertsForDomain($record->id());
+        $open     = $this->alertStore()->openAlertsForDomain($record->id());
+        $recent   = $this->alertStore()->recentlyResolvedAlertsForDomain($record->id(), 3, $this->nowMysql());
+        $combined = array_merge($open, $recent);
+
         $normalized = [];
-        foreach ($raw as $row) {
+        foreach ($combined as $row) {
             $row['is_active'] = ($row['resolved_at'] ?? null) === null;
             $row['severity']  = $row['severity'] ?? StatusCalculator::STATUS_WARN;
             $normalized[]     = $row;
@@ -469,6 +635,43 @@ final class Plugin
         }
 
         return '';
+    }
+
+    private function saveSettingsNonce(): string
+    {
+        if (function_exists('wp_create_nonce')) {
+            return (string) wp_create_nonce(self::NONCE_ACTION_SAVE_SETTINGS);
+        }
+
+        return '';
+    }
+
+    private function resolveAlertNonce(): string
+    {
+        if (function_exists('wp_create_nonce')) {
+            return (string) wp_create_nonce(self::NONCE_ACTION_RESOLVE_ALERT);
+        }
+
+        return '';
+    }
+
+    /**
+     * Collect all open alerts across all domains, enriched with domain name.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function allOpenAlertsWithDomain(): array
+    {
+        $records = $this->repository()->all();
+        $all     = [];
+        foreach ($records as $record) {
+            $alerts = $this->alertStore()->openAlertsForDomain($record->id());
+            foreach ($alerts as $alert) {
+                $alert['domain'] = $record->domain();
+                $all[]           = $alert;
+            }
+        }
+        return $all;
     }
 
     /** @param mixed $value */

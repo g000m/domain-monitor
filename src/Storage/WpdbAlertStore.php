@@ -57,6 +57,33 @@ final class WpdbAlertStore implements AlertStore
         );
     }
 
+    public function resolveAlert(int $alertId, string $resolvedAt): void
+    {
+        $this->wpdb->query(
+            $this->wpdb->prepare(
+                "UPDATE {$this->tableName} SET resolved_at = %s WHERE id = %d AND resolved_at IS NULL",
+                $resolvedAt,
+                $alertId
+            )
+        );
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function recentlyResolvedAlertsForDomain(int $domainId, int $withinDays, string $now): array
+    {
+        $rows = $this->wpdb->get_results(
+            $this->wpdb->prepare(
+                "SELECT * FROM {$this->tableName} WHERE domain_id = %d AND resolved_at IS NOT NULL AND resolved_at >= DATE_SUB(%s, INTERVAL %d DAY) ORDER BY resolved_at DESC",
+                $domainId,
+                $now,
+                $withinDays
+            ),
+            ARRAY_A
+        );
+
+        return is_array($rows) ? array_values($rows) : [];
+    }
+
     private function now(): string
     {
         if (function_exists('current_time')) {

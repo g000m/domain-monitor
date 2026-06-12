@@ -3,28 +3,59 @@ declare(strict_types=1);
 
 namespace DomainMonitor\Notifications;
 
+use DomainMonitor\Settings\PluginSettings;
 use DomainMonitor\Storage\DomainRecord;
 
 /**
  * Sends an email to the site admin via wp_mail when a domain's status
  * transitions to a worse state.
+ *
+ * When a PluginSettings instance is provided, the notification_email setting
+ * is used when non-empty; otherwise admin_email is used as before.
  */
 final class AdminNotifier implements DomainNotifier
 {
+    private ?PluginSettings $settings;
+
+    public function __construct(?PluginSettings $settings = null)
+    {
+        $this->settings = $settings;
+    }
+
     public function notifyStatusChange(DomainRecord $record, string $from, string $to): void
     {
         if (! function_exists('wp_mail') || ! function_exists('get_option')) {
             return;
         }
 
-        $adminEmail = (string) get_option('admin_email', '');
-        if ($adminEmail === '') {
+        $toEmail = $this->resolveEmail();
+        if ($toEmail === '') {
             return;
         }
 
         ['subject' => $subject, 'body' => $body] = $this->composeMessage($record, $from, $to);
 
-        wp_mail($adminEmail, $subject, $body);
+        wp_mail($toEmail, $subject, $body);
+    }
+
+    /**
+     * Resolve the recipient email address.
+     * Uses notification_email from settings when non-empty, falls back to admin_email.
+     */
+    private function resolveEmail(): string
+    {
+        if ($this->settings !== null) {
+            $configured = $this->settings->notificationEmail();
+            if ($configured !== '') {
+                return $configured;
+            }
+        }
+
+        if (function_exists('get_option')) {
+            return (string) get_option('admin_email', '');
+        }
+
+        return '';
     }
 
     /**

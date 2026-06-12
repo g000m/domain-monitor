@@ -23,4 +23,17 @@ interface AlertStore
      * Mark all open alerts of a given type for a domain as resolved.
      */
     public function resolveAlertsForDomain(int $domainId, string $type, string $resolvedAt): void;
+
+    /**
+     * Mark a single alert row as resolved by its primary-key id.
+     */
+    public function resolveAlert(int $alertId, string $resolvedAt): void;
+
+    /**
+     * Return alerts for a domain that were resolved within the last $withinDays days.
+     * These are passed to StatusCalculator so the 3-day amber persistence path works.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function recentlyResolvedAlertsForDomain(int $domainId, int $withinDays, string $now): array;
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace DomainMonitor\Admin;
 
 use DomainMonitor\Domain\ExpirationDate;
+use DomainMonitor\Settings\PluginSettings;
 use DomainMonitor\Storage\DomainRecord;
 
 final class SettingsPage
@@ -13,20 +14,40 @@ final class SettingsPage
     private string $actionUrl;
     private string $manualCheckNonce;
     private string $addDomainNonce;
+    private string $saveSettingsNonce;
+    private string $resolveAlertNonce;
+    private PluginSettings $settings;
+    /** @var list<array<string,mixed>> */
+    private array $openAlerts;
 
     /**
      * @param list<DomainRecord> $domains
-     * @param string $manualCheckNonce Nonce for the manual-check form.
-     * @param string $addDomainNonce   Nonce for the add-domain form.
+     * @param string $manualCheckNonce   Nonce for the manual-check form.
+     * @param string $addDomainNonce     Nonce for the add-domain form.
+     * @param string $saveSettingsNonce  Nonce for the save-settings form.
+     * @param string $resolveAlertNonce  Nonce for the resolve-alert form.
+     * @param list<array<string,mixed>> $openAlerts All open alerts across all domains.
      */
-    public function __construct(array $domains, string $actionUrl, string $manualCheckNonce, string $addDomainNonce = '')
-    {
-        $this->domains          = $domains;
-        $this->actionUrl        = $actionUrl;
-        $this->manualCheckNonce = $manualCheckNonce;
+    public function __construct(
+        array $domains,
+        string $actionUrl,
+        string $manualCheckNonce,
+        string $addDomainNonce = '',
+        string $saveSettingsNonce = '',
+        string $resolveAlertNonce = '',
+        ?PluginSettings $settings = null,
+        array $openAlerts = []
+    ) {
+        $this->domains           = $domains;
+        $this->actionUrl         = $actionUrl;
+        $this->manualCheckNonce  = $manualCheckNonce;
         // Back-compat: if no add-domain nonce supplied fall back to the same value
         // (preserves existing tests that only pass three args).
-        $this->addDomainNonce   = $addDomainNonce !== '' ? $addDomainNonce : $manualCheckNonce;
+        $this->addDomainNonce    = $addDomainNonce !== '' ? $addDomainNonce : $manualCheckNonce;
+        $this->saveSettingsNonce = $saveSettingsNonce;
+        $this->resolveAlertNonce = $resolveAlertNonce;
+        $this->settings          = $settings ?? new PluginSettings();
+        $this->openAlerts        = $openAlerts;
     }
 
     public function register(): void
@@ -51,11 +72,15 @@ final class SettingsPage
 
     public function renderHtml(): string
     {
-        $rows        = $this->domainRowsHtml();
-        $addForm     = $this->addDomainFormHtml();
-        $heading     = $this->escapeHtml($this->translate('Domain Monitor'));
-        $subMonitored = $this->escapeHtml($this->translate('Monitored domains'));
-        $subAdd      = $this->escapeHtml($this->translate('Add another domain'));
+        $rows          = $this->domainRowsHtml();
+        $addForm       = $this->addDomainFormHtml();
+        $notifSection  = $this->notificationsFormHtml();
+        $alertsSection = $this->openAlertsHtml();
+        $heading       = $this->escapeHtml($this->translate('Domain Monitor'));
+        $subMonitored  = $this->escapeHtml($this->translate('Monitored domains'));
+        $subAdd        = $this->escapeHtml($this->translate('Add another domain'));
+        $subNotif      = $this->escapeHtml($this->translate('Notifications'));
+        $subAlerts     = $this->escapeHtml($this->translate('Open alerts'));
 
         return <<<HTML
 <div class="wrap domain-monitor-settings">
@@ -64,6 +89,10 @@ final class SettingsPage
     {$rows}
     <h2>{$subAdd}</h2>
     {$addForm}
+    <h2>{$subNotif}</h2>
+    {$notifSection}
+    <h2>{$subAlerts}</h2>
+    {$alertsSection}
 </div>
 HTML;
     }
@@ -189,6 +218,132 @@ HTML;
     <input type="hidden" name="domain_monitor_domain_id" value="{$id}" />
     <button type="submit" class="button">{$buttonText}</button>
 </form>
+HTML;
+    }
+
+    private function notificationsFormHtml(): string
+    {
+        $actionUrl   = $this->escapeAttribute($this->actionUrl);
+        $nonce       = $this->escapeAttribute($this->saveSettingsNonce);
+
+        $notifyStatusChange        = $this->settings->notifyStatusChange()        ? 'checked' : '';
+        $notifyNsChanged           = $this->settings->notifyNsChanged()           ? 'checked' : '';
+        $notifyAChanged            = $this->settings->notifyAChanged()            ? 'checked' : '';
+        $notifyMxChanged           = $this->settings->notifyMxChanged()           ? 'checked' : '';
+        $notifyTransferLockRemoved = $this->settings->notifyTransferLockRemoved() ? 'checked' : '';
+        $notificationEmail         = $this->escapeAttribute($this->settings->notificationEmail());
+
+        $labelStatusChange        = $this->escapeHtml($this->translate('Notify on status change'));
+        $labelNsChanged           = $this->escapeHtml($this->translate('Notify on nameserver change'));
+        $labelAChanged            = $this->escapeHtml($this->translate('Notify on A record change'));
+        $labelMxChanged           = $this->escapeHtml($this->translate('Notify on MX record change'));
+        $labelTransferLockRemoved = $this->escapeHtml($this->translate('Notify on transfer lock removal'));
+        $labelEmail               = $this->escapeHtml($this->translate('Notification email'));
+        $emailPlaceholder         = $this->escapeAttribute($this->translate('Leave blank to use admin email'));
+        $buttonText               = $this->escapeHtml($this->translate('Save notification settings'));
+
+        return <<<HTML
+<form method="post" action="{$actionUrl}">
+    <input type="hidden" name="action" value="domain_monitor_save_settings" />
+    <input type="hidden" name="_wpnonce" value="{$nonce}" />
+    <table class="form-table">
+        <tr>
+            <th scope="row">{$labelStatusChange}</th>
+            <td><input type="checkbox" name="notify_status_change" value="1" {$notifyStatusChange} /></td>
+        </tr>
+        <tr>
+            <th scope="row">{$labelNsChanged}</th>
+            <td><input type="checkbox" name="notify_ns_changed" value="1" {$notifyNsChanged} /></td>
+        </tr>
+        <tr>
+            <th scope="row">{$labelAChanged}</th>
+            <td><input type="checkbox" name="notify_a_changed" value="1" {$notifyAChanged} /></td>
+        </tr>
+        <tr>
+            <th scope="row">{$labelMxChanged}</th>
+            <td><input type="checkbox" name="notify_mx_changed" value="1" {$notifyMxChanged} /></td>
+        </tr>
+        <tr>
+            <th scope="row">{$labelTransferLockRemoved}</th>
+            <td><input type="checkbox" name="notify_transfer_lock_removed" value="1" {$notifyTransferLockRemoved} /></td>
+        </tr>
+        <tr>
+            <th scope="row"><label for="domain-monitor-notif-email">{$labelEmail}</label></th>
+            <td><input id="domain-monitor-notif-email" type="email" name="notification_email" class="regular-text" value="{$notificationEmail}" placeholder="{$emailPlaceholder}" /></td>
+        </tr>
+    </table>
+    <p><button type="submit" class="button button-primary">{$buttonText}</button></p>
+</form>
+HTML;
+    }
+
+    private function openAlertsHtml(): string
+    {
+        if ($this->openAlerts === []) {
+            $message = $this->escapeHtml($this->translate('No open alerts.'));
+            return '<p>' . $message . '</p>';
+        }
+
+        $actionUrl = $this->escapeAttribute($this->actionUrl);
+        $nonce     = $this->escapeAttribute($this->resolveAlertNonce);
+
+        $typeLabels = [
+            'ns_changed'            => $this->translate('Nameserver changed'),
+            'a_changed'             => $this->translate('A record changed'),
+            'mx_changed'            => $this->translate('MX record changed'),
+            'transfer_lock_removed' => $this->translate('Transfer lock removed'),
+        ];
+
+        $resolveText = $this->escapeHtml($this->translate('Resolve'));
+        $typeHeader  = $this->escapeHtml($this->translate('Type'));
+        $msgHeader   = $this->escapeHtml($this->translate('Message'));
+        $dateHeader  = $this->escapeHtml($this->translate('Date'));
+        $domainHeader = $this->escapeHtml($this->translate('Domain'));
+        $actionHeader = $this->escapeHtml($this->translate('Action'));
+
+        $rows = '';
+        foreach ($this->openAlerts as $alert) {
+            $alertId   = (int) ($alert['id'] ?? 0);
+            $alertIdEsc = $this->escapeAttribute((string) $alertId);
+            $rawType   = (string) ($alert['type'] ?? '');
+            $typeLabel = isset($typeLabels[$rawType]) ? $this->escapeHtml($typeLabels[$rawType]) : $this->escapeHtml($rawType);
+            $message   = $this->escapeHtml((string) ($alert['message'] ?? ''));
+            $createdAt = $this->escapeHtml((string) ($alert['created_at'] ?? ''));
+            $domain    = $this->escapeHtml((string) ($alert['domain'] ?? ''));
+
+            $rows .= <<<HTML
+<tr>
+    <td>{$domain}</td>
+    <td>{$typeLabel}</td>
+    <td>{$message}</td>
+    <td>{$createdAt}</td>
+    <td>
+        <form method="post" action="{$actionUrl}" style="display:inline">
+            <input type="hidden" name="action" value="domain_monitor_resolve_alert" />
+            <input type="hidden" name="_wpnonce" value="{$nonce}" />
+            <input type="hidden" name="domain_monitor_alert_id" value="{$alertIdEsc}" />
+            <button type="submit" class="button">{$resolveText}</button>
+        </form>
+    </td>
+</tr>
+HTML;
+        }
+
+        return <<<HTML
+<table class="wp-list-table widefat fixed striped">
+    <thead>
+        <tr>
+            <th>{$domainHeader}</th>
+            <th>{$typeHeader}</th>
+            <th>{$msgHeader}</th>
+            <th>{$dateHeader}</th>
+            <th>{$actionHeader}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {$rows}
+    </tbody>
+</table>
 HTML;
     }
 

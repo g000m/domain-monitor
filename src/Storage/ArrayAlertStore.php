@@ -47,4 +47,29 @@ final class ArrayAlertStore implements AlertStore
             }
         }
     }
+
+    public function resolveAlert(int $alertId, string $resolvedAt): void
+    {
+        if (isset($this->rows[$alertId]) && $this->rows[$alertId]['resolved_at'] === null) {
+            $this->rows[$alertId]['resolved_at'] = $resolvedAt;
+        }
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function recentlyResolvedAlertsForDomain(int $domainId, int $withinDays, string $now): array
+    {
+        $cutoff = gmdate('Y-m-d H:i:s', strtotime($now) - ($withinDays * 86400));
+        $results = [];
+        foreach ($this->rows as $row) {
+            if ((int) $row['domain_id'] !== $domainId) {
+                continue;
+            }
+            $resolvedAt = $row['resolved_at'] ?? null;
+            if ($resolvedAt !== null && is_string($resolvedAt) && $resolvedAt >= $cutoff) {
+                $results[] = $row;
+            }
+        }
+
+        return array_values($results);
+    }
 }
