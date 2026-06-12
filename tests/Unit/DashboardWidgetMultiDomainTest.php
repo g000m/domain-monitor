@@ -56,7 +56,7 @@ final class DashboardWidgetMultiDomainTest extends TestCase
         self::assertStringContainsString('FAIL', $html);
     }
 
-    public function test_fromDomains_single_domain_uses_detail_layout(): void
+    public function test_fromDomains_single_domain_uses_orb_layout(): void
     {
         $widget = DashboardWidget::fromDomains([
             ['domain' => 'example.com', 'status' => 'ok', 'message' => 'All clear.', 'checked_at' => '2026-06-01', 'expires_at' => '2027-01-01T00:00:00Z'],
@@ -64,10 +64,10 @@ final class DashboardWidgetMultiDomainTest extends TestCase
 
         $html = $widget->renderHtml();
 
-        // Single-domain path: should show the detailed layout, not the table.
+        // Single-domain path: orb view, not the multi-domain table.
         self::assertStringNotContainsString('domain-monitor-widget--multi', $html);
-        self::assertStringContainsString('Monitored domain:', $html);
-        self::assertStringContainsString('Status:', $html);
+        self::assertStringContainsString('domain-monitor-widget--orb', $html);
+        self::assertStringContainsString('domain-monitor-orb', $html);
         self::assertStringContainsString('example.com', $html);
     }
 
@@ -203,11 +203,11 @@ final class DashboardWidgetMultiDomainTest extends TestCase
 
         $html = $widget->renderHtml();
 
+        // Orb view for single domain: green orb, domain name, All checks passing subtitle.
         self::assertStringContainsString('legacy.example.com', $html);
-        self::assertStringContainsString('Status:', $html);
-        self::assertStringContainsString('OK', $html);
-        self::assertStringContainsString('All clear.', $html);
-        self::assertStringContainsString('2027-01-01', $html);
+        self::assertStringContainsString('domain-monitor-orb--green', $html);
+        self::assertStringContainsString('All checks passing', $html);
+        self::assertStringContainsString('domain-monitor-widget--orb', $html);
     }
 
     public function test_legacy_constructor_empty_domain_shows_dev_notice(): void
