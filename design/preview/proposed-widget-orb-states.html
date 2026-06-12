@@ -1,0 +1,243 @@
+<!-- @dsCard group="Dashboard Widget" name="Proposed — orb state anatomy" subtitle="4-up grid: green / amber / red (pulse) / gray — escalation rule per state" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposed – Orb States</title>
+<link rel="stylesheet" href="_wp-admin.css">
+<style>
+  /* ---- Wider stage for 4-up grid ---- */
+  .dm-stage--orb-states {
+    width: 760px;
+  }
+
+  /* ---- 4-up grid ---- */
+  .dm-orb-states-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--wp-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+
+  .dm-orb-state {
+    background: var(--wp-surface);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 14px 20px;
+    gap: 12px;
+  }
+
+  /* ---- Orb base ---- */
+  .dm-orb {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ---- Color variants ---- */
+  .dm-orb--green {
+    background: #00a32a;
+    box-shadow:
+      0 0 0 8px rgba(0, 163, 42, .12),
+      0 0 24px rgba(0, 163, 42, .30);
+  }
+
+  .dm-orb--amber {
+    background: #dba617;
+    box-shadow:
+      0 0 0 8px rgba(219, 166, 23, .12),
+      0 0 20px rgba(219, 166, 23, .28);
+  }
+
+  .dm-orb--red {
+    background: #d63638;
+    box-shadow:
+      0 0 0 8px rgba(214, 54, 56, .14),
+      0 0 24px rgba(214, 54, 56, .35);
+    animation: orb-pulse 2.6s ease-in-out infinite;
+  }
+
+  .dm-orb--gray {
+    background: #8c8f94;
+    box-shadow:
+      0 0 0 8px rgba(140, 143, 148, .10),
+      0 0 16px rgba(140, 143, 148, .18);
+  }
+
+  /* Gentle pulse: scale + glow intensity, never jarring */
+  @keyframes orb-pulse {
+    0%   { transform: scale(1);    box-shadow: 0 0 0 8px rgba(214, 54, 56, .14), 0 0 24px rgba(214, 54, 56, .35); }
+    50%  { transform: scale(1.07); box-shadow: 0 0 0 14px rgba(214, 54, 56, .10), 0 0 36px rgba(214, 54, 56, .55); }
+    100% { transform: scale(1);    box-shadow: 0 0 0 8px rgba(214, 54, 56, .14), 0 0 24px rgba(214, 54, 56, .35); }
+  }
+
+  /* ---- Text block beneath orb ---- */
+  .dm-orb-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    text-align: center;
+    flex: 1;
+  }
+
+  .dm-orb-fact {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--wp-text);
+    line-height: 1.4;
+  }
+
+  .dm-orb-fact--amber { color: #8a6116; }
+  .dm-orb-fact--red   { color: var(--wp-red); }
+  .dm-orb-fact--muted { color: var(--wp-text-muted); font-weight: 400; }
+
+  /* ---- Action area ---- */
+  .dm-orb-action {
+    margin-top: 2px;
+  }
+
+  .dm-orb-action a {
+    font-size: 12px;
+    color: var(--wp-blue);
+    text-decoration: none;
+  }
+
+  .dm-orb-action a:hover { text-decoration: underline; }
+
+  .dm-orb-action .button-primary {
+    height: 26px;
+    line-height: 24px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  /* ---- Escalation caption strip ---- */
+  .dm-orb-caption-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--wp-border);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    overflow: hidden;
+  }
+
+  .dm-orb-caption {
+    background: var(--wp-heading-bg);
+    padding: 8px 12px 10px;
+    font-size: 11px;
+    color: var(--wp-text-muted);
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .dm-orb-caption strong {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 2px;
+  }
+
+  .dm-orb-caption--green strong { color: #007017; }
+  .dm-orb-caption--amber strong { color: #8a6116; }
+  .dm-orb-caption--red   strong { color: var(--wp-red); }
+  .dm-orb-caption--gray  strong { color: var(--wp-text-muted); }
+</style>
+</head>
+<body>
+<div class="dm-stage dm-stage--orb-states">
+  <p class="dm-stage-label">Dashboard Widget — Proposed — orb state anatomy</p>
+
+  <div class="postbox">
+    <div class="postbox-header">
+      <h2>Domain Monitor — State Anatomy</h2>
+    </div>
+    <div class="inside" style="padding: 0;">
+
+      <!--
+        ESCALATION MODEL:
+        GREEN  — ambient; no text required. User ignores it (good).
+        AMBER  — one fact, one link. Color surfaces the problem; text names it.
+        RED    — pulse animation breaks peripheral vision; one urgent fact + action button.
+        GRAY   — no data yet; neutral, non-alarming.
+      -->
+
+      <div class="dm-orb-states-grid">
+
+        <!-- GREEN -->
+        <div class="dm-orb-state">
+          <div class="dm-orb dm-orb--green"></div>
+          <div class="dm-orb-body">
+            <span class="dm-orb-fact--muted" style="font-size:12px;">kitestring.studio</span>
+          </div>
+        </div>
+
+        <!-- AMBER -->
+        <div class="dm-orb-state">
+          <div class="dm-orb dm-orb--amber"></div>
+          <div class="dm-orb-body">
+            <span class="dm-orb-fact dm-orb-fact--amber">Domain expires in 21 days</span>
+            <span class="dm-orb-fact--muted" style="font-size:11px;">kitestring.studio</span>
+          </div>
+          <div class="dm-orb-action">
+            <a href="#">Renew &middot; Details</a>
+          </div>
+        </div>
+
+        <!-- RED -->
+        <div class="dm-orb-state">
+          <div class="dm-orb dm-orb--red"></div>
+          <div class="dm-orb-body">
+            <span class="dm-orb-fact dm-orb-fact--red">SSL certificate expired</span>
+            <span class="dm-orb-fact--muted" style="font-size:11px;">kitestring.studio</span>
+          </div>
+          <div class="dm-orb-action">
+            <a href="#" class="button button-primary">Fix now</a>
+          </div>
+        </div>
+
+        <!-- GRAY -->
+        <div class="dm-orb-state">
+          <div class="dm-orb dm-orb--gray"></div>
+          <div class="dm-orb-body">
+            <span class="dm-orb-fact--muted" style="font-size:12px;">First check pending</span>
+            <span class="dm-orb-fact--muted" style="font-size:11px;">kitestring.studio</span>
+          </div>
+        </div>
+
+      </div><!-- /.dm-orb-states-grid -->
+
+      <!-- Escalation captions -->
+      <div class="dm-orb-caption-grid">
+        <div class="dm-orb-caption dm-orb-caption--green">
+          <strong>Green</strong>
+          All checks healthy. No text needed — the color is the message.
+        </div>
+        <div class="dm-orb-caption dm-orb-caption--amber">
+          <strong>Amber</strong>
+          One warning. Color surfaces it; a single sentence names it. One link, no wall of text.
+        </div>
+        <div class="dm-orb-caption dm-orb-caption--red">
+          <strong>Red + pulse</strong>
+          Active failure. Animation catches peripheral vision. One fact, one action — nothing else.
+        </div>
+        <div class="dm-orb-caption dm-orb-caption--gray">
+          <strong>Gray</strong>
+          Not yet checked. Neutral — no false alarm before first data arrives.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

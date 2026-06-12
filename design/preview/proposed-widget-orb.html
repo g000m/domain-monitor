@@ -1,0 +1,95 @@
+<!-- @dsCard group="Dashboard Widget" name="Proposed — orb (green steady-state)" subtitle="Ambient status: single orb, domain name, faint timestamp — nothing demanding attention" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposed – Orb Widget (Green)</title>
+<link rel="stylesheet" href="_wp-admin.css">
+<style>
+  /* Orb centrepiece */
+  .dm-orb-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 12px 20px;
+    gap: 14px;
+  }
+
+  .dm-orb {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--wp-green);
+    box-shadow:
+      0 0 0 8px rgba(0, 163, 42, .12),
+      0 0 24px rgba(0, 163, 42, .30);
+    flex-shrink: 0;
+  }
+
+  .dm-orb-domain {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--wp-text);
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  .dm-orb-subtitle {
+    font-size: 12px;
+    color: var(--wp-text-muted);
+    text-align: center;
+    margin-top: -8px;
+  }
+
+  /* Near-invisible footer link */
+  .dm-orb-footer {
+    text-align: center;
+    padding: 0 12px 12px;
+    border-top: 1px solid var(--wp-border);
+    padding-top: 8px;
+  }
+
+  .dm-orb-footer a {
+    font-size: 11px;
+    color: var(--wp-border-dark);
+    text-decoration: none;
+  }
+
+  .dm-orb-footer a:hover {
+    color: var(--wp-blue);
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+<div class="dm-stage dm-stage--widget">
+  <p class="dm-stage-label">Dashboard Widget — Proposed — orb (green steady-state)</p>
+
+  <div class="postbox">
+    <div class="postbox-header">
+      <h2>Domain Monitor</h2>
+    </div>
+    <div class="inside" style="padding-bottom: 0;">
+
+      <!--
+        DESIGN INTENT:
+        Zero cognitive load in the healthy state. The orb is the entire message.
+        Users stop noticing it — until it changes color.
+      -->
+      <div class="dm-orb-wrap">
+        <div class="dm-orb"></div>
+        <div>
+          <p class="dm-orb-domain">kitestring.studio</p>
+          <p class="dm-orb-subtitle">All checks passing &middot; 2 hours ago</p>
+        </div>
+      </div>
+
+    </div>
+    <div class="dm-orb-footer">
+      <a href="#">Details</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>
