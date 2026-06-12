@@ -11,6 +11,7 @@ use DomainMonitor\Alerts\AlertResolver;
 use DomainMonitor\Checks\DnsChecker;
 use DomainMonitor\Checks\CheckRunner;
 use DomainMonitor\Checks\DomainCheckRunner;
+use DomainMonitor\Checks\EmailDnsChecker;
 use DomainMonitor\Checks\NativeDnsResolver;
 use DomainMonitor\Checks\RdapChecker;
 use DomainMonitor\Checks\SslChecker;
@@ -161,6 +162,7 @@ final class Plugin
             'notify_mx_changed'           => isset($_POST['notify_mx_changed']),
             'notify_transfer_lock_removed' => isset($_POST['notify_transfer_lock_removed']),
             'notification_email'          => '',
+            'email_dns_check_enabled'     => isset($_POST['email_dns_check_enabled']),
         ];
 
         if (isset($_POST['notification_email'])) {
@@ -349,6 +351,14 @@ final class Plugin
         $previousTransferLocked,
         DomainRecord $fresh
     ): void {
+        // Index existing open alert types to avoid creating duplicates.
+        // Fetched once here and reused by both the DNS diff block and the
+        // email DNS regression block below.
+        $existingOpenTypes = array_flip(array_column(
+            $this->alertStore()->openAlertsForDomain($domainId),
+            'type'
+        ));
+
         // DNS snapshot diff.
         // Skip if there is no previous snapshot at all, or if the previous snapshot
         // pre-dates the dns.apex structure (e.g. recorded by older plugin code). In
@@ -357,16 +367,6 @@ final class Plugin
         $oldApex = $oldSnapshot['dns']['apex'] ?? null;
         $hasRichOldSnapshot = $oldSnapshot !== [] && is_array($oldApex) && $oldApex !== [];
         if ($hasRichOldSnapshot) {
-            // Index existing open alert types to avoid creating duplicates.
-            // When an alert of a given type already exists (e.g. ns_changed is open
-            // because the NS was changed to attacker values), we do not create a second
-            // alert for the same type. This also prevents a "revert" diff from generating
-            // a new alert when AlertResolver is about to resolve the existing one.
-            $existingOpenTypes = array_flip(array_column(
-                $this->alertStore()->openAlertsForDomain($domainId),
-                'type'
-            ));
-
             $diffs = (new SnapshotDiffer())->diff($oldSnapshot, $newSnapshot);
             foreach ($diffs as $diff) {
                 $recordType = $diff->recordType();
@@ -392,6 +392,30 @@ final class Plugin
                     }
                 }
                 // Other record types (aaaa, cname) get no dedicated alert in v1.
+            }
+        }
+
+        // Email DNS regression alerts: SPF disappeared, DMARC disappeared.
+        // We only alert on clear regressions (had it, now missing). We do NOT
+        // alert on "never had DMARC" — absence on a fresh baseline is not a regression.
+        $oldEmailDns = $oldSnapshot['email_dns'] ?? null;
+        $newEmailDns = $newSnapshot['email_dns'] ?? null;
+        if (is_array($oldEmailDns) && is_array($newEmailDns)) {
+            $oldSpf   = $oldEmailDns['spf_state'] ?? '';
+            $newSpf   = $newEmailDns['spf_state'] ?? '';
+            $oldDmarc = $oldEmailDns['dmarc_state'] ?? '';
+            $newDmarc = $newEmailDns['dmarc_state'] ?? '';
+
+            if ($oldSpf === 'present' && $newSpf === 'missing') {
+                if (! isset($existingOpenTypes['spf_missing'])) {
+                    $this->alertStore()->createAlert($domainId, 'spf_missing', 'SPF record disappeared.');
+                }
+            }
+
+            if ($oldDmarc === 'present' && $newDmarc === 'missing') {
+                if (! isset($existingOpenTypes['dmarc_missing'])) {
+                    $this->alertStore()->createAlert($domainId, 'dmarc_missing', 'DMARC record disappeared.');
+                }
             }
         }
 
@@ -529,10 +553,16 @@ final class Plugin
             return $this->injectedCheckRunner;
         }
 
+        $emailDnsChecker = $this->pluginSettings()->emailDnsCheckEnabled()
+            ? new EmailDnsChecker(new NativeDnsResolver())
+            : null;
+
         return new DomainCheckRunner(
             new DnsChecker(new NativeDnsResolver()),
             new RdapChecker(new WordPressHttpClient()),
-            new SslChecker(new StreamCertificateFetcher())
+            new SslChecker(new StreamCertificateFetcher()),
+            null,
+            $emailDnsChecker
         );
     }
 

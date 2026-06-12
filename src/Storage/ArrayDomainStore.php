@@ -124,6 +124,13 @@ final class ArrayDomainStore implements DomainStore
             ];
         }
 
+        if (isset($result['email_dns']) && is_string($result['email_dns'])) {
+            $decoded = json_decode($result['email_dns'], true);
+            if (is_array($decoded)) {
+                $snapshot['email_dns'] = $decoded;
+            }
+        }
+
         return $snapshot;
     }
 

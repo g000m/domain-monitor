@@ -9,22 +9,26 @@ final class DomainCheckRunner implements CheckRunner
     private $dnsChecker;
     /** @var object */
     private $rdapChecker;
-    /** @var object */
+    /** @var object|null */
     private $sslChecker;
+    /** @var object|null */
+    private $emailDnsChecker;
     /** @var callable */
     private $clock;
 
     /**
-     * @param object        $dnsChecker  Object exposing check(string $domain): DnsResult.
-     * @param object        $rdapChecker Object exposing check(string $domain): RdapResult.
+     * @param object        $dnsChecker       Object exposing check(string $domain): DnsResult.
+     * @param object        $rdapChecker      Object exposing check(string $domain): RdapResult.
      * @param object|callable|null $sslCheckerOrClock Object exposing check(string $domain): SslResult,
      *                             OR (legacy) a callable clock for backward-compat with existing tests.
-     * @param callable|null $clock Returns MySQL datetime string (when sslChecker is provided explicitly).
+     * @param callable|null $clock            Returns MySQL datetime string (when sslChecker is provided explicitly).
+     * @param object|null   $emailDnsChecker  Object exposing check(string $domain): EmailDnsResult. Null = disabled.
      */
-    public function __construct($dnsChecker, $rdapChecker, $sslCheckerOrClock = null, ?callable $clock = null)
+    public function __construct($dnsChecker, $rdapChecker, $sslCheckerOrClock = null, ?callable $clock = null, $emailDnsChecker = null)
     {
-        $this->dnsChecker  = $dnsChecker;
-        $this->rdapChecker = $rdapChecker;
+        $this->dnsChecker      = $dnsChecker;
+        $this->rdapChecker     = $rdapChecker;
+        $this->emailDnsChecker = $emailDnsChecker;
 
         // Back-compat: if arg 3 is callable it is the old clock, not an ssl checker.
         if (is_callable($sslCheckerOrClock)) {
@@ -100,6 +104,21 @@ final class DomainCheckRunner implements CheckRunner
             }
         }
 
+        // Email DNS check (opt-in; null checker means disabled).
+        $emailDnsData = null;
+        if ($this->emailDnsChecker !== null) {
+            try {
+                /** @var EmailDnsResult $emailDns */
+                $emailDns     = $this->emailDnsChecker->check($domain);
+                $emailDnsData = json_encode($emailDns->toArray());
+            } catch (\Throwable $e) {
+                $emailDnsData = json_encode([
+                    'status'  => 'degraded',
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
         $result = [
             'dns_status'           => $dnsStatus,
             'dns_message'          => $dnsMessage,
@@ -118,6 +137,10 @@ final class DomainCheckRunner implements CheckRunner
 
         if ($dnsApex !== null) {
             $result['dns_apex'] = $dnsApex;
+        }
+
+        if ($emailDnsData !== null) {
+            $result['email_dns'] = $emailDnsData;
         }
 
         return $result;

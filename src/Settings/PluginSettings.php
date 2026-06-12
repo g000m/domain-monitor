@@ -26,6 +26,12 @@ final class PluginSettings
     private bool $notifyTransferLockRemoved;
     private string $notificationEmail;
 
+    /**
+     * Whether to run the email DNS health check (SPF/DMARC/DKIM/MX).
+     * Defaults to false — not all monitored domains handle mail.
+     */
+    private bool $emailDnsCheckEnabled;
+
     /** @param array<string,mixed> $raw */
     public function __construct(array $raw = [])
     {
@@ -36,6 +42,8 @@ final class PluginSettings
         $this->notifyMxChanged           = isset($raw['notify_mx_changed'])           ? (bool) $raw['notify_mx_changed']           : true;
         $this->notifyTransferLockRemoved = isset($raw['notify_transfer_lock_removed']) ? (bool) $raw['notify_transfer_lock_removed'] : true;
         $this->notificationEmail         = isset($raw['notification_email']) && is_string($raw['notification_email']) ? $raw['notification_email'] : '';
+        // Email DNS check defaults to off — not all monitored domains send mail.
+        $this->emailDnsCheckEnabled      = isset($raw['email_dns_check_enabled'])     ? (bool) $raw['email_dns_check_enabled']     : false;
     }
 
     /**
@@ -86,6 +94,15 @@ final class PluginSettings
     }
 
     /**
+     * Whether the email DNS health check (SPF/DMARC/DKIM/MX) is enabled.
+     * Opt-in only — defaults to false on fresh installs.
+     */
+    public function emailDnsCheckEnabled(): bool
+    {
+        return $this->emailDnsCheckEnabled;
+    }
+
+    /**
      * Serialise to the array format persisted in the options table.
      *
      * @return array<string,mixed>
@@ -99,6 +116,7 @@ final class PluginSettings
             'notify_mx_changed'           => $this->notifyMxChanged,
             'notify_transfer_lock_removed' => $this->notifyTransferLockRemoved,
             'notification_email'          => $this->notificationEmail,
+            'email_dns_check_enabled'     => $this->emailDnsCheckEnabled,
         ];
     }
 }

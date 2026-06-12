@@ -232,6 +232,7 @@ HTML;
         $notifyMxChanged           = $this->settings->notifyMxChanged()           ? 'checked' : '';
         $notifyTransferLockRemoved = $this->settings->notifyTransferLockRemoved() ? 'checked' : '';
         $notificationEmail         = $this->escapeAttribute($this->settings->notificationEmail());
+        $emailDnsCheckEnabled      = $this->settings->emailDnsCheckEnabled()      ? 'checked' : '';
 
         $labelStatusChange        = $this->escapeHtml($this->translate('Notify on status change'));
         $labelNsChanged           = $this->escapeHtml($this->translate('Notify on nameserver change'));
@@ -240,6 +241,8 @@ HTML;
         $labelTransferLockRemoved = $this->escapeHtml($this->translate('Notify on transfer lock removal'));
         $labelEmail               = $this->escapeHtml($this->translate('Notification email'));
         $emailPlaceholder         = $this->escapeAttribute($this->translate('Leave blank to use admin email'));
+        $labelEmailDnsCheck       = $this->escapeHtml($this->translate('Enable email DNS health check (SPF/DMARC/DKIM/MX)'));
+        $emailDnsDescription      = $this->escapeHtml($this->translate('Checks SPF, DMARC, DKIM selectors and MX records. Enable only for domains that handle mail.'));
         $buttonText               = $this->escapeHtml($this->translate('Save notification settings'));
 
         return <<<HTML
@@ -270,6 +273,13 @@ HTML;
         <tr>
             <th scope="row"><label for="domain-monitor-notif-email">{$labelEmail}</label></th>
             <td><input id="domain-monitor-notif-email" type="email" name="notification_email" class="regular-text" value="{$notificationEmail}" placeholder="{$emailPlaceholder}" /></td>
+        </tr>
+        <tr>
+            <th scope="row">{$labelEmailDnsCheck}</th>
+            <td>
+                <input type="checkbox" name="email_dns_check_enabled" value="1" {$emailDnsCheckEnabled} />
+                <p class="description">{$emailDnsDescription}</p>
+            </td>
         </tr>
     </table>
     <p><button type="submit" class="button button-primary">{$buttonText}</button></p>

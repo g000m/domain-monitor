@@ -73,6 +73,7 @@ final class PluginSettingsTest extends TestCase
             'notify_mx_changed'           => true,
             'notify_transfer_lock_removed' => false,
             'notification_email'          => 'ops@example.com',
+            'email_dns_check_enabled'     => false,
         ];
 
         $settings = new PluginSettings($raw);
