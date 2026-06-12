@@ -30,6 +30,15 @@ register_activation_hook(__FILE__, static function (): void {
     if (class_exists(\DomainMonitor\Storage\Installer::class)) {
         (new \DomainMonitor\Storage\Installer($wpdb))->install();
     }
+
+    // Schedule the daily domain check if not already scheduled.
+    if (! wp_next_scheduled('domain_monitor_daily_check')) {
+        wp_schedule_event(time(), 'daily', 'domain_monitor_daily_check');
+    }
+});
+
+register_deactivation_hook(__FILE__, static function (): void {
+    wp_clear_scheduled_hook('domain_monitor_daily_check');
 });
 
 add_action('plugins_loaded', static function (): void {

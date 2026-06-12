@@ -69,4 +69,49 @@ final class SettingsPageTest extends TestCase
         self::assertStringNotContainsString('<script>', $html);
         self::assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;.example.com', $html);
     }
+
+    public function test_add_domain_form_uses_separate_nonce_from_manual_check_form(): void
+    {
+        $page = new SettingsPage(
+            [new DomainRecord(['id' => 3, 'domain' => 'example.com', 'source' => 'auto'])],
+            'https://example.test/wp-admin/admin-post.php',
+            'manual-check-nonce',
+            'add-domain-nonce'
+        );
+
+        $html = $page->renderHtml();
+
+        // The add-domain form must carry the add-domain nonce.
+        self::assertStringContainsString('name="action" value="domain_monitor_add_domain"', $html);
+        // The manual-check form must carry the manual-check nonce.
+        self::assertStringContainsString('name="action" value="domain_monitor_manual_check"', $html);
+
+        // Both nonce values must appear somewhere in the output.
+        self::assertStringContainsString('add-domain-nonce', $html);
+        self::assertStringContainsString('manual-check-nonce', $html);
+    }
+
+    public function test_add_domain_form_nonce_is_placed_in_add_domain_form_not_manual_check_form(): void
+    {
+        $page = new SettingsPage(
+            [new DomainRecord(['id' => 5, 'domain' => 'example.org', 'source' => 'manual'])],
+            'https://example.test/wp-admin/admin-post.php',
+            'nonce-for-check',
+            'nonce-for-add'
+        );
+
+        $html = $page->renderHtml();
+
+        // Split on the two form actions to isolate each form's HTML.
+        $addFormStart = strpos($html, 'value="domain_monitor_add_domain"');
+        $checkFormStart = strpos($html, 'value="domain_monitor_manual_check"');
+
+        self::assertNotFalse($addFormStart);
+        self::assertNotFalse($checkFormStart);
+
+        // Grab the section around the add-domain action tag (200 chars before and after).
+        $addFormContext = substr($html, max(0, $addFormStart - 200), 400);
+        self::assertStringContainsString('nonce-for-add', $addFormContext);
+        self::assertStringNotContainsString('nonce-for-check', $addFormContext);
+    }
 }

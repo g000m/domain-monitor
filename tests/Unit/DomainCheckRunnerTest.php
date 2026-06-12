@@ -28,6 +28,54 @@ final class DomainCheckRunnerTest extends TestCase
         self::assertSame('2027-01-01T00:00:00Z', $result['rdap_expires_at']);
         self::assertSame('2026-05-26 21:30:00', $result['last_checked_at']);
     }
+
+    public function test_dns_checker_exception_degrades_gracefully(): void
+    {
+        $runner = new DomainCheckRunner(
+            new ThrowingCheckerForRunner(new \RuntimeException('DNS timeout')),
+            new FakeRdapCheckerForRunner(new RdapResult('ok', '2027-01-01T00:00:00Z', 'Registrar', 'RDAP ok.')),
+            static fn (): string => '2026-05-26 21:30:00'
+        );
+
+        $result = $runner->check('example.com');
+
+        self::assertSame('degraded', $result['dns_status']);
+        self::assertSame('DNS timeout', $result['dns_message']);
+        // RDAP should still succeed independently.
+        self::assertSame('ok', $result['rdap_status']);
+    }
+
+    public function test_rdap_checker_exception_degrades_gracefully(): void
+    {
+        $runner = new DomainCheckRunner(
+            new FakeDnsCheckerForRunner(new DnsResult('ok', 'DNS ok.')),
+            new ThrowingCheckerForRunner(new \RuntimeException('RDAP unreachable')),
+            static fn (): string => '2026-05-26 21:30:00'
+        );
+
+        $result = $runner->check('example.com');
+
+        // DNS should still succeed independently.
+        self::assertSame('ok', $result['dns_status']);
+        self::assertSame('degraded', $result['rdap_status']);
+        self::assertSame('RDAP unreachable', $result['rdap_message']);
+        self::assertNull($result['rdap_expires_at']);
+    }
+
+    public function test_both_checkers_throwing_produces_two_degraded_results(): void
+    {
+        $runner = new DomainCheckRunner(
+            new ThrowingCheckerForRunner(new \RuntimeException('DNS down')),
+            new ThrowingCheckerForRunner(new \RuntimeException('RDAP down')),
+            static fn (): string => '2026-05-26 21:30:00'
+        );
+
+        $result = $runner->check('example.com');
+
+        self::assertSame('degraded', $result['dns_status']);
+        self::assertSame('degraded', $result['rdap_status']);
+        self::assertSame('2026-05-26 21:30:00', $result['last_checked_at']);
+    }
 }
 
 final class FakeDnsCheckerForRunner
@@ -57,5 +105,20 @@ final class FakeRdapCheckerForRunner
     public function check(string $domain): RdapResult
     {
         return $this->result;
+    }
+}
+
+final class ThrowingCheckerForRunner
+{
+    private \Throwable $exception;
+
+    public function __construct(\Throwable $exception)
+    {
+        $this->exception = $exception;
+    }
+
+    public function check(string $domain): void
+    {
+        throw $this->exception;
     }
 }

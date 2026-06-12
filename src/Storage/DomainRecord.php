@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace DomainMonitor\Storage;
 
+use DateTimeImmutable;
+use DomainMonitor\Domain\StatusCalculator;
+
 final class DomainRecord
 {
     /** @var array<string,mixed> */
@@ -52,6 +55,24 @@ final class DomainRecord
     public function statusReason(): string
     {
         return (string) ($this->data['status_reason'] ?? '');
+    }
+
+    /**
+     * Returns the string status code (ok / warn / fail) computed via
+     * StatusCalculator so all callers use a consistent definition.
+     *
+     * A record that has never been checked (no snapshot, no last_checked_at)
+     * reports warn so the admin knows it still needs a first check.
+     */
+    public function statusCode(): string
+    {
+        if ($this->lastCheckedAt() === '' && $this->snapshot() === []) {
+            return StatusCalculator::STATUS_WARN;
+        }
+
+        $calculator = new StatusCalculator();
+        $result = $calculator->calculate($this->snapshot(), [], new DateTimeImmutable());
+        return $result->code();
     }
 
     public function dnsStatus(): string

@@ -11,14 +11,22 @@ final class SettingsPage
     /** @var list<DomainRecord> */
     private array $domains;
     private string $actionUrl;
-    private string $nonce;
+    private string $manualCheckNonce;
+    private string $addDomainNonce;
 
-    /** @param list<DomainRecord> $domains */
-    public function __construct(array $domains, string $actionUrl, string $nonce)
+    /**
+     * @param list<DomainRecord> $domains
+     * @param string $manualCheckNonce Nonce for the manual-check form.
+     * @param string $addDomainNonce   Nonce for the add-domain form.
+     */
+    public function __construct(array $domains, string $actionUrl, string $manualCheckNonce, string $addDomainNonce = '')
     {
-        $this->domains = $domains;
-        $this->actionUrl = $actionUrl;
-        $this->nonce = $nonce;
+        $this->domains          = $domains;
+        $this->actionUrl        = $actionUrl;
+        $this->manualCheckNonce = $manualCheckNonce;
+        // Back-compat: if no add-domain nonce supplied fall back to the same value
+        // (preserves existing tests that only pass three args).
+        $this->addDomainNonce   = $addDomainNonce !== '' ? $addDomainNonce : $manualCheckNonce;
     }
 
     public function register(): void
@@ -103,7 +111,7 @@ HTML;
     private function addDomainFormHtml(): string
     {
         $actionUrl = $this->escapeAttribute($this->actionUrl);
-        $nonce = $this->escapeAttribute($this->nonce);
+        $nonce     = $this->escapeAttribute($this->addDomainNonce);
 
         return <<<HTML
 <form method="post" action="{$actionUrl}">
@@ -121,8 +129,8 @@ HTML;
     private function manualCheckFormHtml(int $domainId): string
     {
         $actionUrl = $this->escapeAttribute($this->actionUrl);
-        $nonce = $this->escapeAttribute($this->nonce);
-        $id = $this->escapeAttribute((string) $domainId);
+        $nonce     = $this->escapeAttribute($this->manualCheckNonce);
+        $id        = $this->escapeAttribute((string) $domainId);
 
         return <<<HTML
 <form method="post" action="{$actionUrl}">

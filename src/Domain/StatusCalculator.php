@@ -12,6 +12,8 @@ final class StatusCalculator
     public const STATUS_FAIL = 'fail';
 
     private const RECENT_RECOVERY_DAYS = 3;
+    private const EXPIRY_RED_DAYS      = 7;
+    private const EXPIRY_AMBER_DAYS    = 30;
 
     /**
      * @param array<string,mixed> $snapshot
@@ -31,6 +33,17 @@ final class StatusCalculator
             $expiry = new DateTimeImmutable($expiresAt);
             if ($expiry < $now) {
                 return new DomainStatus(self::STATUS_FAIL, 'Domain registration appears to be expired.');
+            }
+
+            $redThreshold   = $now->modify('+' . self::EXPIRY_RED_DAYS . ' days');
+            $amberThreshold = $now->modify('+' . self::EXPIRY_AMBER_DAYS . ' days');
+
+            if ($expiry <= $redThreshold) {
+                return new DomainStatus(self::STATUS_FAIL, 'Domain registration expires within ' . self::EXPIRY_RED_DAYS . ' days.');
+            }
+
+            if ($expiry <= $amberThreshold) {
+                return new DomainStatus(self::STATUS_WARN, 'Domain registration expires within ' . self::EXPIRY_AMBER_DAYS . ' days.');
             }
         }
 
