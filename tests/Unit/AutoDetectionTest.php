@@ -172,6 +172,40 @@ final class AutoDetectionTest extends TestCase
         self::assertNotNull($record);
         self::assertSame('example.org', $record->domain());
     }
+
+    // -----------------------------------------------------------------
+    // resolvePrimaryDomain: the display path must agree with detection
+    // (regression: widget showed dev notice while an override was active)
+    // -----------------------------------------------------------------
+
+    public function test_resolve_primary_domain_returns_override_on_non_monitorable_host(): void
+    {
+        $repository = new DomainRepository(new ArrayDomainStore());
+        $actions    = new DomainAdminActions(
+            $repository,
+            new FakeRunnerForAutoDetection(),
+            'localhost',
+            static fn (): string => 'gabeherbert.com'
+        );
+
+        self::assertSame('gabeherbert.com', $actions->resolvePrimaryDomain());
+    }
+
+    public function test_resolve_primary_domain_empty_for_non_monitorable_host_without_override(): void
+    {
+        $repository = new DomainRepository(new ArrayDomainStore());
+        $actions    = new DomainAdminActions($repository, new FakeRunnerForAutoDetection(), 'localhost');
+
+        self::assertSame('', $actions->resolvePrimaryDomain());
+    }
+
+    public function test_resolve_primary_domain_returns_apex_for_public_host(): void
+    {
+        $repository = new DomainRepository(new ArrayDomainStore());
+        $actions    = new DomainAdminActions($repository, new FakeRunnerForAutoDetection(), 'www.example.co.uk');
+
+        self::assertSame('example.co.uk', $actions->resolvePrimaryDomain());
+    }
 }
 
 final class FakeRunnerForAutoDetection

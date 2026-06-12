@@ -16,8 +16,6 @@ use DomainMonitor\Checks\SslChecker;
 use DomainMonitor\Checks\StreamCertificateFetcher;
 use DomainMonitor\Checks\WordPressHttpClient;
 use DomainMonitor\Diff\SnapshotDiffer;
-use DomainMonitor\Domain\ApexDomain;
-use DomainMonitor\Domain\MonitorableHost;
 use DomainMonitor\Domain\StatusCalculator;
 use DomainMonitor\Notifications\AdminNotifier;
 use DomainMonitor\Notifications\DomainNotifier;
@@ -396,15 +394,10 @@ final class Plugin
 
     private function currentDomain(): string
     {
-        $host = $this->currentHost();
-
-        // Return empty string so DashboardWidget shows the dev-environment notice
-        // instead of a domain that can never be monitored.
-        if (! MonitorableHost::isMonitorable($host)) {
-            return '';
-        }
-
-        return ApexDomain::fromHost($host);
+        // Same resolution chain as auto-detection (constant and filter overrides
+        // included), so the widget never disagrees with what is actually monitored.
+        // Empty string makes DashboardWidget show the dev-environment notice.
+        return $this->actions()->resolvePrimaryDomain();
     }
 
     private function currentHost(): string

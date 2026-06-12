@@ -56,11 +56,27 @@ final class DomainAdminActions
      */
     public function ensureAutoDetectedDomain(): int
     {
+        $domain = $this->resolvePrimaryDomain();
+        if ($domain === '') {
+            return 0;
+        }
+
+        return $this->repository->upsertDomain($domain, 'auto');
+    }
+
+    /**
+     * Resolve the effective primary apex domain for this site, or '' when the
+     * site has no publicly monitorable host and no override. Same resolution
+     * order as ensureAutoDetectedDomain; used by the dashboard widget so the
+     * displayed domain always matches what auto-detection would insert.
+     */
+    public function resolvePrimaryDomain(): string
+    {
         // Injected source (test seam) or constant override: bypass monitorable guard.
         if ($this->domainSource !== null) {
             $override = (string) ($this->domainSource)();
             if ($override !== '') {
-                return $this->repository->upsertDomain(ApexDomain::fromHost($override), 'auto');
+                return ApexDomain::fromHost($override);
             }
         }
 
@@ -68,7 +84,7 @@ final class DomainAdminActions
         if (defined('DOMAIN_MONITOR_PRIMARY_DOMAIN')) {
             $constant = (string) constant('DOMAIN_MONITOR_PRIMARY_DOMAIN');
             if ($constant !== '') {
-                return $this->repository->upsertDomain(ApexDomain::fromHost($constant), 'auto');
+                return ApexDomain::fromHost($constant);
             }
         }
 
@@ -83,12 +99,12 @@ final class DomainAdminActions
             }
         }
 
-        // Guard: only insert publicly-monitorable hosts.
+        // Guard: only monitor publicly-monitorable hosts.
         if (! MonitorableHost::isMonitorable($host)) {
-            return 0;
+            return '';
         }
 
-        return $this->repository->upsertDomain(ApexDomain::fromHost($host), 'auto');
+        return ApexDomain::fromHost($host);
     }
 
     public function addDomain(string $input): int
