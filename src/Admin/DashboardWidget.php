@@ -211,12 +211,12 @@ HTML;
                 . '</span>';
         }
 
-        $cssClass = match ($status) {
+        $pillClasses = [
             'ok'   => 'domain-monitor-pill--ok',
             'warn' => 'domain-monitor-pill--warn',
             'fail' => 'domain-monitor-pill--fail',
-            default => 'domain-monitor-pill--unknown',
-        };
+        ];
+        $cssClass = isset($pillClasses[$status]) ? $pillClasses[$status] : 'domain-monitor-pill--unknown';
 
         return '<span class="domain-monitor-pill ' . $this->escapeAttribute($cssClass) . '">'
             . strtoupper($this->escapeHtml($status))
