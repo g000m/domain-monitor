@@ -21,6 +21,7 @@ use DomainMonitor\Diff\SnapshotDiffer;
 use DomainMonitor\Domain\StatusCalculator;
 use DomainMonitor\Notifications\AdminNotifier;
 use DomainMonitor\Notifications\DomainNotifier;
+use DomainMonitor\Rest\StatusController;
 use DomainMonitor\Settings\PluginSettings;
 use DomainMonitor\Storage\AlertStore;
 use DomainMonitor\Storage\ArrayAlertStore;
@@ -75,6 +76,15 @@ final class Plugin
         // Cron hook must be registered outside the is_admin() gate so it fires
         // on front-end requests where WP-Cron runs.
         add_action(self::CRON_HOOK, [$this, 'handleDailyCheck']);
+
+        // REST API — registered outside is_admin() so it works on non-admin REST requests.
+        add_action('rest_api_init', function (): void {
+            (new StatusController(
+                $this->repository(),
+                $this->alertStore(),
+                new \DomainMonitor\Domain\StatusCalculator()
+            ))->register();
+        });
 
         // Admin-only hooks.
         if (! $this->isAdminRequest()) {
