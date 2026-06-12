@@ -78,3 +78,7 @@ add_action('plugins_loaded', static function (): void {
         (new \DomainMonitor\Storage\Installer($wpdb))->maybeUpgrade();
     }
 });
+
+if (defined('WP_CLI') && WP_CLI && class_exists(\DomainMonitor\Cli\DomainMonitorCommand::class)) {
+    \WP_CLI::add_command('domain-monitor', \DomainMonitor\Cli\DomainMonitorCommand::create());
+}

@@ -224,6 +224,39 @@ final class Plugin
     }
 
     // -----------------------------------------------------------------
+    // CLI-accessible helpers (used by DomainMonitorCommand)
+    // -----------------------------------------------------------------
+
+    /**
+     * Run the full check pipeline for a specific domain ID.
+     * Returns true on success (record found and check ran), false otherwise.
+     */
+    public function runCheckForDomainId(int $domainId): bool
+    {
+        $repository = $this->repository();
+        $record     = $repository->find($domainId);
+
+        if (! $record instanceof DomainRecord) {
+            return false;
+        }
+
+        $this->checkAndRecord($record, $repository);
+        return true;
+    }
+
+    /**
+     * Return the status code for a domain record using the same alert feed as
+     * the daily cron and admin notices.
+     */
+    public function statusCodeForRecord(?DomainRecord $record): string
+    {
+        if ($record === null) {
+            return 'unknown';
+        }
+        return $record->statusCode($this->alertsForRecord($record));
+    }
+
+    // -----------------------------------------------------------------
     // Private helpers
     // -----------------------------------------------------------------
 
