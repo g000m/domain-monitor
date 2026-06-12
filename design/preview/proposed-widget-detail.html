@@ -1,0 +1,205 @@
+<!-- @dsCard group="Dashboard Widget" name="Proposed — detail view" subtitle="scuttlebird.com with fail status, SSL expiry, email DNS health grid" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposed – Widget Detail View</title>
+<link rel="stylesheet" href="_wp-admin.css">
+<style>
+  /* Back-link */
+  .dm-back {
+    font-size: 12px;
+    color: var(--wp-blue);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .dm-back:hover { text-decoration: underline; }
+
+  /* Domain header row */
+  .dm-detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+  .dm-detail-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--wp-text);
+    margin: 0;
+  }
+
+  /* Data grid */
+  .dm-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .dm-detail-cell {
+    background: var(--wp-heading-bg);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+  }
+  .dm-detail-cell__label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--wp-text-muted);
+    margin-bottom: 2px;
+  }
+  .dm-detail-cell__value {
+    font-size: 13px;
+    color: var(--wp-text);
+  }
+  .dm-detail-cell--urgent .dm-detail-cell__value {
+    color: var(--wp-red);
+    font-weight: 600;
+  }
+  .dm-detail-cell--full { grid-column: 1 / -1; }
+
+  /* Email DNS health subsection */
+  .dm-email-dns-section {
+    border-top: 1px solid var(--wp-border);
+    padding-top: 10px;
+    margin-bottom: 10px;
+  }
+  .dm-email-dns-section h4 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--wp-text-muted);
+    margin: 0 0 8px;
+  }
+
+  /* Alert list */
+  .dm-alert-list { margin-bottom: 10px; }
+  .dm-alert-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--wp-red);
+    background: var(--pill-fail-bg);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: var(--wp-text);
+  }
+  .dm-alert-item__type { font-weight: 600; color: var(--wp-red); }
+  .dm-alert-item__date { color: var(--wp-text-muted); margin-left: auto; white-space: nowrap; }
+
+  .dm-detail-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--wp-border);
+  }
+</style>
+</head>
+<body>
+<div class="dm-stage dm-stage--widget">
+  <p class="dm-stage-label">Dashboard Widget — Proposed — expanded detail (scuttlebird.com)</p>
+
+  <div class="postbox">
+    <div class="postbox-header">
+      <h2>Domain Monitor</h2>
+    </div>
+    <div class="inside">
+
+      <!--
+        KEY UX CHANGES:
+        1. Back-link to list view — single-domain no longer a dead end
+        2. Key data in a 2-col grid (label+value cells) instead of loose <p> tags
+        3. Urgency-highlighted expiry cell when domain/SSL expiry is critical
+        4. Email DNS health rendered as a compact 4-up grid (SPF / DMARC / DKIM / MX)
+        5. Open alerts surfaced inline — no need to go to settings page to see what fired
+      -->
+
+      <a class="dm-back" href="#">&#8592; All domains</a>
+
+      <div class="dm-detail-header">
+        <h3 class="dm-detail-title">scuttlebird.com</h3>
+        <span class="domain-monitor-pill domain-monitor-pill--fail pill-lg">Fail</span>
+      </div>
+
+      <div class="dm-detail-grid">
+        <div class="dm-detail-cell dm-detail-cell--urgent">
+          <div class="dm-detail-cell__label">Domain expires</div>
+          <div class="dm-detail-cell__value">2026-06-18 &mdash; <strong>6 days</strong></div>
+        </div>
+        <div class="dm-detail-cell">
+          <div class="dm-detail-cell__label">Registrar lock</div>
+          <div class="dm-detail-cell__value" style="color:var(--wp-red);font-weight:600;">Unlocked</div>
+        </div>
+        <div class="dm-detail-cell dm-detail-cell--urgent">
+          <div class="dm-detail-cell__label">SSL expires</div>
+          <div class="dm-detail-cell__value">2026-06-20 &mdash; <strong>8 days</strong></div>
+        </div>
+        <div class="dm-detail-cell">
+          <div class="dm-detail-cell__label">Nameservers</div>
+          <div class="dm-detail-cell__value">ns1.hover.com</div>
+        </div>
+        <div class="dm-detail-cell dm-detail-cell--full">
+          <div class="dm-detail-cell__label">RDAP message</div>
+          <div class="dm-detail-cell__value">Domain within 7-day expiry window. Registrar lock is removed.</div>
+        </div>
+      </div>
+
+      <!-- Email DNS health — only shown when email_dns_check_enabled = true -->
+      <div class="dm-email-dns-section">
+        <h4>Email DNS health</h4>
+        <div class="dm-email-dns-grid">
+          <div class="dm-dns-check">
+            <span class="dm-dns-check__label">SPF</span>
+            <span class="domain-monitor-pill domain-monitor-pill--ok">Pass</span>
+          </div>
+          <div class="dm-dns-check">
+            <span class="dm-dns-check__label">DMARC</span>
+            <span class="domain-monitor-pill domain-monitor-pill--warn">Warn</span>
+          </div>
+          <div class="dm-dns-check">
+            <span class="dm-dns-check__label">DKIM</span>
+            <span class="domain-monitor-pill domain-monitor-pill--unknown">—</span>
+          </div>
+          <div class="dm-dns-check">
+            <span class="dm-dns-check__label">MX</span>
+            <span class="domain-monitor-pill domain-monitor-pill--ok">Pass</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Open alerts inline -->
+      <div class="dm-alert-list">
+        <div class="dm-alert-item">
+          <span class="dm-alert-item__type">Transfer lock removed</span>
+          <span>Lock status changed from locked to unlocked.</span>
+          <span class="dm-alert-item__date">Jun 11</span>
+        </div>
+        <div class="dm-alert-item">
+          <span class="dm-alert-item__type">Nameserver changed</span>
+          <span>NS changed: ns2.oldregistrar.net &#8594; ns2.hover.com</span>
+          <span class="dm-alert-item__date">Jun 10</span>
+        </div>
+      </div>
+
+      <div class="dm-detail-actions">
+        <button class="button button-primary">Run check</button>
+        <button class="button">Resolve all alerts</button>
+        <span class="dm-meta" style="margin-left:auto;">Last checked: 2026-06-12 08:14</span>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

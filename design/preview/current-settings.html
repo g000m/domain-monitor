@@ -1,0 +1,179 @@
+<!-- @dsCard group="Settings" name="Current — settings page" subtitle="All sections flat: monitored domains, add domain, notifications, open alerts" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Current – Settings Page</title>
+<link rel="stylesheet" href="_wp-admin.css">
+<style>
+  /* Current domain section card — minimal styling as-rendered */
+  .domain-monitor-domain {
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 10px;
+  }
+  .domain-monitor-domain h3 { margin-bottom: 6px; }
+  .domain-monitor-domain p  { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="dm-stage dm-stage--settings">
+  <p class="dm-stage-label">Settings Page — Current — full page</p>
+
+  <div class="wrap domain-monitor-settings">
+    <h1>Domain Monitor</h1>
+
+    <!-- ---- Monitored domains ---- -->
+    <h2>Monitored domains</h2>
+
+    <div class="domain-monitor-domains">
+
+      <!-- domainRowHtml() for kitestring.studio -->
+      <section class="domain-monitor-domain">
+        <h3>kitestring.studio</h3>
+        <p>Source: Auto-detected</p>
+        <p><strong>DNS: OK</strong></p>
+        <p><strong>RDAP: OK</strong></p>
+        <p>Domain expires: 2027-03-14</p>
+        <p>Transfer lock: <strong>Locked</strong></p>
+        <p><strong>SSL: OK</strong></p>
+        <p>SSL expires: 2027-03-01</p>
+        <p>Last checked: 2026-06-12 08:14:02</p>
+        <form method="post" action="#" style="display:inline">
+          <input type="hidden" name="action" value="domain_monitor_manual_check" />
+          <input type="hidden" name="_wpnonce" value="abc123" />
+          <input type="hidden" name="domain_monitor_domain_id" value="1" />
+          <button type="submit" class="button">Run check</button>
+        </form>
+      </section>
+
+      <!-- domainRowHtml() for scuttlebird.com -->
+      <section class="domain-monitor-domain">
+        <h3>scuttlebird.com</h3>
+        <p>Source: Manual</p>
+        <p><strong>DNS: FAIL</strong></p>
+        <p>DNS resolution failed for scuttlebird.com.</p>
+        <p><strong>RDAP: FAIL</strong></p>
+        <p>Domain expires: 2026-06-18</p>
+        <p>Domain within 7-day expiry window. Registrar lock is removed.</p>
+        <p>Transfer lock: <strong>UNLOCKED</strong></p>
+        <p><strong>SSL: FAIL</strong></p>
+        <p>SSL expires: 2026-06-20</p>
+        <p>Last checked: 2026-06-12 08:14:05</p>
+        <form method="post" action="#" style="display:inline">
+          <input type="hidden" name="action" value="domain_monitor_manual_check" />
+          <input type="hidden" name="_wpnonce" value="abc123" />
+          <input type="hidden" name="domain_monitor_domain_id" value="2" />
+          <button type="submit" class="button">Run check</button>
+        </form>
+      </section>
+
+    </div>
+
+    <!-- ---- Add another domain ---- -->
+    <h2>Add another domain</h2>
+
+    <form method="post" action="#">
+      <input type="hidden" name="action" value="domain_monitor_add_domain" />
+      <input type="hidden" name="_wpnonce" value="abc123" />
+      <p>
+        <label for="domain-monitor-domain">Domain</label>
+        <input id="domain-monitor-domain" type="text" name="domain_monitor_domain" class="regular-text" placeholder="example.com" />
+        <button type="submit" class="button button-primary">Add domain</button>
+      </p>
+    </form>
+
+    <!-- ---- Notifications ---- -->
+    <h2>Notifications</h2>
+
+    <form method="post" action="#">
+      <input type="hidden" name="action" value="domain_monitor_save_settings" />
+      <input type="hidden" name="_wpnonce" value="abc123" />
+      <table class="form-table">
+        <tr>
+          <th scope="row">Notify on status change</th>
+          <td><input type="checkbox" name="notify_status_change" value="1" checked /></td>
+        </tr>
+        <tr>
+          <th scope="row">Notify on nameserver change</th>
+          <td><input type="checkbox" name="notify_ns_changed" value="1" checked /></td>
+        </tr>
+        <tr>
+          <th scope="row">Notify on A record change</th>
+          <td><input type="checkbox" name="notify_a_changed" value="1" checked /></td>
+        </tr>
+        <tr>
+          <th scope="row">Notify on MX record change</th>
+          <td><input type="checkbox" name="notify_mx_changed" value="1" checked /></td>
+        </tr>
+        <tr>
+          <th scope="row">Notify on transfer lock removal</th>
+          <td><input type="checkbox" name="notify_transfer_lock_removed" value="1" checked /></td>
+        </tr>
+        <tr>
+          <th scope="row"><label for="domain-monitor-notif-email">Notification email</label></th>
+          <td><input id="domain-monitor-notif-email" type="email" name="notification_email" class="regular-text" value="" placeholder="Leave blank to use admin email" /></td>
+        </tr>
+        <tr>
+          <th scope="row">Enable email DNS health check (SPF/DMARC/DKIM/MX)</th>
+          <td>
+            <input type="checkbox" name="email_dns_check_enabled" value="1" />
+            <p class="description">Checks SPF, DMARC, DKIM selectors and MX records. Enable only for domains that handle mail.</p>
+          </td>
+        </tr>
+      </table>
+      <p><button type="submit" class="button button-primary">Save notification settings</button></p>
+    </form>
+
+    <!-- ---- Open alerts ---- -->
+    <h2>Open alerts</h2>
+
+    <table class="wp-list-table widefat fixed striped">
+      <thead>
+        <tr>
+          <th>Domain</th>
+          <th>Type</th>
+          <th>Message</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>scuttlebird.com</td>
+          <td>Transfer lock removed</td>
+          <td>Lock status changed from locked to unlocked.</td>
+          <td>2026-06-11 14:22:01</td>
+          <td>
+            <form method="post" action="#" style="display:inline">
+              <input type="hidden" name="action" value="domain_monitor_resolve_alert" />
+              <input type="hidden" name="_wpnonce" value="abc123" />
+              <input type="hidden" name="domain_monitor_alert_id" value="7" />
+              <button type="submit" class="button">Resolve</button>
+            </form>
+          </td>
+        </tr>
+        <tr>
+          <td>scuttlebird.com</td>
+          <td>Nameserver changed</td>
+          <td>NS changed: ns2.oldregistrar.net to ns2.hover.com</td>
+          <td>2026-06-10 09:05:44</td>
+          <td>
+            <form method="post" action="#" style="display:inline">
+              <input type="hidden" name="action" value="domain_monitor_resolve_alert" />
+              <input type="hidden" name="_wpnonce" value="abc123" />
+              <input type="hidden" name="domain_monitor_alert_id" value="6" />
+              <button type="submit" class="button">Resolve</button>
+            </form>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+  </div><!-- .wrap -->
+</div>
+</body>
+</html>

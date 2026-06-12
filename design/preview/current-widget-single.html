@@ -1,0 +1,46 @@
+<!-- @dsCard group="Dashboard Widget" name="Current — single-domain" subtitle="kitestring.studio, OK status, last checked" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Current – Single-domain Widget</title>
+<link rel="stylesheet" href="_wp-admin.css">
+</head>
+<body>
+<div class="dm-stage dm-stage--widget">
+  <p class="dm-stage-label">Dashboard Widget — Current — single-domain</p>
+
+  <div class="postbox">
+    <div class="postbox-header">
+      <h2>Domain Monitor</h2>
+    </div>
+    <div class="inside">
+
+      <!-- Faithful reproduction of renderSingleDomain() output -->
+      <div class="domain-monitor-widget">
+        <p><strong>Monitored domain:</strong> kitestring.studio</p>
+        <p><strong>Status: <span class="domain-monitor-pill domain-monitor-pill--ok">OK</span></strong></p>
+        <!-- rowExpirationHtml() -->
+        <p>Domain expires: 2027-03-14</p>
+        <!-- rowMessageHtml() -->
+        <p>DNS resolves correctly. RDAP confirms active registration.</p>
+        <!-- rowCheckedAtHtml() -->
+        <p>Last checked: 2026-06-12 08:14:02</p>
+
+        <!-- manualCheckFormHtml() -->
+        <form method="post" action="#">
+          <input type="hidden" name="action" value="domain_monitor_manual_check" />
+          <input type="hidden" name="_wpnonce" value="abc123" />
+          <p>
+            <button type="submit" class="button button-primary">Run manual check</button>
+            <span class="description">Checks the configured apex domain now.</span>
+          </p>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

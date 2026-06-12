@@ -1,0 +1,278 @@
+<!-- @dsCard group="Settings" name="Proposed — domain management" subtitle="Domain cards with status summary, inline remove/check-now actions, add-domain form with validation hint" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposed – Settings: Domain Management</title>
+<link rel="stylesheet" href="_wp-admin.css">
+<style>
+  /* Tab nav */
+  .dm-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--wp-border);
+    margin-bottom: 16px;
+  }
+  .dm-tab {
+    font-size: 13px;
+    padding: 8px 14px;
+    color: var(--wp-text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .dm-tab.active {
+    color: var(--wp-blue);
+    border-bottom-color: var(--wp-blue);
+    font-weight: 600;
+  }
+  .dm-tab:hover { color: var(--wp-blue); }
+
+  /* Page header */
+  .dm-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .dm-page-header h1 { margin-bottom: 0; }
+  .dm-status-summary {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 12px;
+  }
+
+  /* Source tag */
+  .dm-source-tag {
+    font-size: 11px;
+    color: var(--wp-text-muted);
+    background: var(--wp-heading-bg);
+    border: 1px solid var(--wp-border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    vertical-align: middle;
+  }
+
+  /* Lock indicator */
+  .dm-lock-ok   { color: var(--wp-green); font-size: 13px; }
+  .dm-lock-fail { color: var(--wp-red);   font-size: 13px; font-weight: 600; }
+
+  /* Validated add-domain form */
+  .dm-add-domain-form {
+    background: var(--wp-surface);
+    border: 1px dashed var(--wp-border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .dm-add-domain-form h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .dm-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .dm-input-row input[type="text"] { width: 240px; }
+  .dm-input-hint {
+    font-size: 12px;
+    color: var(--wp-text-muted);
+    margin-top: 6px;
+  }
+
+  /* Resolve alert inline */
+  .dm-domain-alerts {
+    padding: 8px 14px;
+    border-top: 1px solid var(--wp-border);
+    background: var(--pill-fail-bg);
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .dm-domain-alerts p {
+    font-size: 12px;
+    color: var(--wp-red);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="dm-stage dm-stage--settings">
+  <p class="dm-stage-label">Settings — Proposed — Domains tab</p>
+
+  <div class="wrap">
+    <div class="dm-page-header">
+      <h1>Domain Monitor</h1>
+      <div class="dm-status-summary">
+        <span class="domain-monitor-pill domain-monitor-pill--fail pill-lg">1 failing</span>
+        <span class="domain-monitor-pill domain-monitor-pill--warn pill-lg">1 warning</span>
+        <span class="domain-monitor-pill domain-monitor-pill--ok pill-lg">1 OK</span>
+      </div>
+    </div>
+
+    <!-- Tab nav -->
+    <nav class="dm-tabs">
+      <a class="dm-tab active" href="#">Domains</a>
+      <a class="dm-tab" href="#">Checks &amp; Notifications</a>
+      <a class="dm-tab" href="#">Open Alerts <span class="dm-alert-badge" style="margin-left:2px;">2</span></a>
+    </nav>
+
+    <!--
+      KEY UX CHANGES:
+      1. Each domain is a card with a structured header (name + pill + source tag + actions) and
+         a 3-col data grid for key fields — replaces the flat <section> with loose <p> tags
+      2. Remove button is visible per domain (was absent in current — no way to remove domains)
+      3. "Run check" is a primary action button on the card, not a standalone mini-form below all the data
+      4. Open alerts for that domain appear inline at the bottom of the card (red tinted strip)
+      5. Add-domain form is at the bottom of the list, visually connected, with an apex-domain hint
+         so users know not to add "https://" or subdomains
+    -->
+
+    <!-- Domain card 1: kitestring.studio — OK -->
+    <div class="dm-domain-card">
+      <div class="dm-domain-card__header">
+        <span class="dm-domain-card__name">kitestring.studio</span>
+        <span class="domain-monitor-pill domain-monitor-pill--ok">OK</span>
+        <span class="dm-source-tag">Auto-detected</span>
+        <div style="margin-left:auto; display:flex; gap:6px;">
+          <button class="button button-small">Run check</button>
+          <button class="button button-small button-link-delete" style="height:24px;line-height:22px;padding:0 8px;font-size:11px;background:none;border:1px solid var(--wp-border);border-radius:var(--radius);cursor:pointer;color:var(--wp-red);">Remove</button>
+        </div>
+      </div>
+      <div class="dm-domain-card__body">
+        <div class="dm-domain-card__field">
+          <label>Domain expires</label>
+          <span>2027-03-14 <span class="dm-days-ok">(275 days)</span></span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>SSL expires</label>
+          <span>2027-03-01 <span class="dm-days-ok">(263 days)</span></span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>Registrar lock</label>
+          <span class="dm-lock-ok">Locked</span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>DNS</label>
+          <span class="domain-monitor-pill domain-monitor-pill--ok">OK</span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>RDAP</label>
+          <span class="domain-monitor-pill domain-monitor-pill--ok">OK</span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>Last checked</label>
+          <span class="dm-meta">2026-06-12 08:14</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Domain card 2: gabeherbert.com — WARN -->
+    <div class="dm-domain-card">
+      <div class="dm-domain-card__header">
+        <span class="dm-domain-card__name">gabeherbert.com</span>
+        <span class="domain-monitor-pill domain-monitor-pill--warn">Warn</span>
+        <span class="dm-source-tag">Manual</span>
+        <div style="margin-left:auto; display:flex; gap:6px;">
+          <button class="button button-small">Run check</button>
+          <button class="button button-small" style="height:24px;line-height:22px;padding:0 8px;font-size:11px;background:none;border:1px solid var(--wp-border);border-radius:var(--radius);cursor:pointer;color:var(--wp-red);">Remove</button>
+        </div>
+      </div>
+      <div class="dm-domain-card__body">
+        <div class="dm-domain-card__field">
+          <label>Domain expires</label>
+          <span>2026-08-02 <span class="dm-days-warn">(51 days)</span></span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>SSL expires</label>
+          <span>2026-09-11 <span class="dm-days-ok">(91 days)</span></span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>Registrar lock</label>
+          <span class="dm-lock-ok">Locked</span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>DNS</label>
+          <span class="domain-monitor-pill domain-monitor-pill--ok">OK</span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>RDAP</label>
+          <span class="domain-monitor-pill domain-monitor-pill--warn">Warn</span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>Last checked</label>
+          <span class="dm-meta">2026-06-12 08:14</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Domain card 3: scuttlebird.com — FAIL with inline alerts -->
+    <div class="dm-domain-card">
+      <div class="dm-domain-card__header">
+        <span class="dm-domain-card__name">scuttlebird.com</span>
+        <span class="domain-monitor-pill domain-monitor-pill--fail">Fail</span>
+        <span class="dm-source-tag">Manual</span>
+        <div style="margin-left:auto; display:flex; gap:6px;">
+          <button class="button button-small button-primary">Run check</button>
+          <button class="button button-small" style="height:24px;line-height:22px;padding:0 8px;font-size:11px;background:none;border:1px solid var(--wp-border);border-radius:var(--radius);cursor:pointer;color:var(--wp-red);">Remove</button>
+        </div>
+      </div>
+      <div class="dm-domain-card__body">
+        <div class="dm-domain-card__field">
+          <label>Domain expires</label>
+          <span>2026-06-18 <span class="dm-days-urgent">(6 days)</span></span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>SSL expires</label>
+          <span>2026-06-20 <span class="dm-days-urgent">(8 days)</span></span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>Registrar lock</label>
+          <span class="dm-lock-fail">Unlocked</span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>DNS</label>
+          <span class="domain-monitor-pill domain-monitor-pill--fail">Fail</span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>RDAP</label>
+          <span class="domain-monitor-pill domain-monitor-pill--fail">Fail</span>
+        </div>
+        <div class="dm-domain-card__field">
+          <label>Last checked</label>
+          <span class="dm-meta">2026-06-12 08:14</span>
+        </div>
+      </div>
+      <!-- Inline alert strip -->
+      <div class="dm-domain-alerts">
+        <p>
+          <span class="dm-alert-badge">2</span>
+          <span><strong>2 open alerts:</strong> Transfer lock removed (Jun 11), Nameserver changed (Jun 10).</span>
+          <a href="#" style="margin-left:auto;color:var(--wp-red);font-size:12px;white-space:nowrap;">View alerts</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- Add domain form -->
+    <div class="dm-add-domain-form">
+      <h3>Add a domain</h3>
+      <form method="post" action="#">
+        <input type="hidden" name="action" value="domain_monitor_add_domain" />
+        <input type="hidden" name="_wpnonce" value="abc123" />
+        <div class="dm-input-row">
+          <input type="text" name="domain_monitor_domain" placeholder="example.com" />
+          <button type="submit" class="button button-primary">Add domain</button>
+        </div>
+        <p class="dm-input-hint">Enter the apex domain only (e.g. <code>example.com</code> — no <code>https://</code> or subdomains).</p>
+      </form>
+    </div>
+
+  </div><!-- .wrap -->
+</div>
+</body>
+</html>

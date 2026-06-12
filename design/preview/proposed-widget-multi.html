@@ -1,0 +1,176 @@
+<!-- @dsCard group="Dashboard Widget" name="Proposed — multi-domain" subtitle="Problems-first sort, urgency-coloured days countdown, alert badges, row hover actions" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposed – Multi-domain Widget</title>
+<link rel="stylesheet" href="_wp-admin.css">
+<style>
+  /* Proposed: tighter widget table — no outer gap, compact rows */
+  .dm-widget-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  .dm-widget-table thead th {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--wp-text-muted);
+    padding: 0 8px 6px;
+    border-bottom: 1px solid var(--wp-border);
+    text-align: left;
+  }
+  .dm-widget-table thead th.col-status { width: 70px; }
+  .dm-widget-table thead th.col-days   { width: 54px; text-align: right; }
+  .dm-widget-table thead th.col-alerts { width: 30px; text-align: center; }
+
+  .dm-widget-table tbody tr {
+    border-bottom: 1px solid #ebebec;
+  }
+  .dm-widget-table tbody tr:last-child { border-bottom: none; }
+  .dm-widget-table tbody td {
+    padding: 7px 8px;
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  .dm-widget-table tbody tr:hover { background: #f0f5fa; cursor: pointer; }
+
+  /* Domain name + row-actions stacked */
+  .dm-widget-domain { display: flex; flex-direction: column; }
+  .dm-widget-domain a {
+    font-weight: 600;
+    color: var(--wp-text);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  .dm-widget-domain a:hover { color: var(--wp-blue); text-decoration: underline; }
+
+  /* Days column alignment */
+  td.col-days { text-align: right; }
+  td.col-alerts { text-align: center; }
+
+  /* Manual check link at footer */
+  .dm-widget-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid var(--wp-border);
+    margin-top: 4px;
+  }
+  .dm-widget-footer a { color: var(--wp-blue); font-size: 12px; text-decoration: none; }
+  .dm-widget-footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="dm-stage dm-stage--widget">
+  <p class="dm-stage-label">Dashboard Widget — Proposed — multi-domain</p>
+
+  <div class="postbox">
+    <div class="postbox-header">
+      <h2>Domain Monitor</h2>
+    </div>
+    <div class="inside">
+
+      <!--
+        KEY UX CHANGES:
+        1. Problems-first row sort (fail → warn → ok → unknown)
+        2. Days remaining column is urgency-coloured (red <14, amber <60, grey otherwise)
+        3. Alert count badge in a dedicated column — 0 alerts shows nothing
+        4. Row hover reveals "View details" link affordance
+        5. "Run check" demoted to a text link in the footer to save vertical space
+      -->
+      <table class="dm-widget-table">
+        <thead>
+          <tr>
+            <th>Domain</th>
+            <th class="col-status">Status</th>
+            <th class="col-days">Expires in</th>
+            <th class="col-alerts">!</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- FAIL first -->
+          <tr>
+            <td>
+              <div class="dm-widget-domain">
+                <a href="#">scuttlebird.com</a>
+                <span class="dm-row-actions">
+                  <a href="#">View details</a>
+                  <span>·</span>
+                  <a href="#">Run check</a>
+                </span>
+              </div>
+            </td>
+            <td class="col-status">
+              <span class="domain-monitor-pill domain-monitor-pill--fail pill-lg">Fail</span>
+            </td>
+            <td class="col-days"><span class="dm-days-urgent">6 days</span></td>
+            <td class="col-alerts"><span class="dm-alert-badge">2</span></td>
+          </tr>
+          <!-- WARN -->
+          <tr>
+            <td>
+              <div class="dm-widget-domain">
+                <a href="#">gabeherbert.com</a>
+                <span class="dm-row-actions">
+                  <a href="#">View details</a>
+                  <span>·</span>
+                  <a href="#">Run check</a>
+                </span>
+              </div>
+            </td>
+            <td class="col-status">
+              <span class="domain-monitor-pill domain-monitor-pill--warn pill-lg">Warn</span>
+            </td>
+            <td class="col-days"><span class="dm-days-warn">51 days</span></td>
+            <td class="col-alerts"></td>
+          </tr>
+          <!-- OK -->
+          <tr>
+            <td>
+              <div class="dm-widget-domain">
+                <a href="#">kitestring.studio</a>
+                <span class="dm-row-actions">
+                  <a href="#">View details</a>
+                  <span>·</span>
+                  <a href="#">Run check</a>
+                </span>
+              </div>
+            </td>
+            <td class="col-status">
+              <span class="domain-monitor-pill domain-monitor-pill--ok pill-lg">OK</span>
+            </td>
+            <td class="col-days"><span class="dm-days-ok">275 days</span></td>
+            <td class="col-alerts"></td>
+          </tr>
+          <!-- UNKNOWN / not checked -->
+          <tr>
+            <td>
+              <div class="dm-widget-domain">
+                <a href="#">evolutionaryherbalism.com</a>
+                <span class="dm-row-actions">
+                  <a href="#">View details</a>
+                  <span>·</span>
+                  <a href="#">Run check</a>
+                </span>
+              </div>
+            </td>
+            <td class="col-status">
+              <span class="domain-monitor-pill domain-monitor-pill--unknown pill-lg">—</span>
+            </td>
+            <td class="col-days"><span class="dm-days-ok">—</span></td>
+            <td class="col-alerts"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="dm-widget-footer">
+        <span class="dm-meta">Last run: 2026-06-12 08:14</span>
+        <a href="#">Run check now</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!-- @dsCard group="Dashboard Widget" name="Anatomy — status pill states" subtitle="All pill variants at both sizes with semantic color reference" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomy – Status Pill States</title>
+<link rel="stylesheet" href="_wp-admin.css">
+<style>
+  .dm-anatomy-section { margin-bottom: 24px; }
+  .dm-anatomy-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--wp-text-muted);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--wp-border);
+    padding-bottom: 4px;
+  }
+  .dm-pill-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .dm-pill-meta {
+    font-size: 11px;
+    color: var(--wp-text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .dm-pill-meta code {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 10px;
+    background: var(--wp-heading-bg);
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+  .dm-swatch-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .dm-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .dm-swatch-block {
+    width: 40px;
+    height: 24px;
+    border-radius: var(--radius);
+    border: 1px solid rgba(0,0,0,.1);
+  }
+  .dm-swatch-label { font-size: 10px; color: var(--wp-text-muted); }
+</style>
+</head>
+<body>
+<div class="dm-stage dm-stage--settings">
+  <p class="dm-stage-label">Anatomy — Status Pill States</p>
+
+  <div class="postbox">
+    <div class="postbox-header"><h2>Status pill inventory</h2></div>
+    <div class="inside" style="padding-top:12px;">
+
+      <!-- Standard size (widget table) -->
+      <div class="dm-anatomy-section">
+        <h3>Standard size — widget table row</h3>
+        <div class="dm-pill-row">
+          <span class="domain-monitor-pill domain-monitor-pill--ok">OK</span>
+          <div class="dm-pill-meta">
+            <span>Status: <code>ok</code></span>
+            <span>CSS: <code>--wp-green #00a32a</code></span>
+          </div>
+        </div>
+        <div class="dm-pill-row">
+          <span class="domain-monitor-pill domain-monitor-pill--warn">WARN</span>
+          <div class="dm-pill-meta">
+            <span>Status: <code>warn</code></span>
+            <span>CSS: <code>--wp-amber #dba617</code></span>
+          </div>
+        </div>
+        <div class="dm-pill-row">
+          <span class="domain-monitor-pill domain-monitor-pill--fail">FAIL</span>
+          <div class="dm-pill-meta">
+            <span>Status: <code>fail</code></span>
+            <span>CSS: <code>--wp-red #d63638</code></span>
+          </div>
+        </div>
+        <div class="dm-pill-row">
+          <span class="domain-monitor-pill domain-monitor-pill--unknown">Not checked yet</span>
+          <div class="dm-pill-meta">
+            <span>Status: <code>""</code> (empty)</span>
+            <span>CSS: <code>--wp-border #c3c4c7</code></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Large size (proposed detail header) -->
+      <div class="dm-anatomy-section">
+        <h3>Large size — proposed detail header / domain card</h3>
+        <div class="dm-pill-row">
+          <span class="domain-monitor-pill domain-monitor-pill--ok pill-lg">OK</span>
+          <span class="domain-monitor-pill domain-monitor-pill--warn pill-lg">Warn</span>
+          <span class="domain-monitor-pill domain-monitor-pill--fail pill-lg">Fail</span>
+          <span class="domain-monitor-pill domain-monitor-pill--unknown pill-lg">—</span>
+        </div>
+      </div>
+
+      <!-- Email DNS sub-pills -->
+      <div class="dm-anatomy-section">
+        <h3>Email DNS sub-checks — proposed detail grid</h3>
+        <div class="dm-email-dns-grid" style="max-width:340px;">
+          <div class="dm-dns-check">
+            <span class="dm-dns-check__label">SPF</span>
+            <span class="domain-monitor-pill domain-monitor-pill--ok">Pass</span>
+          </div>
+          <div class="dm-dns-check">
+            <span class="dm-dns-check__label">DMARC</span>
+            <span class="domain-monitor-pill domain-monitor-pill--warn">Warn</span>
+          </div>
+          <div class="dm-dns-check">
+            <span class="dm-dns-check__label">DKIM</span>
+            <span class="domain-monitor-pill domain-monitor-pill--unknown">—</span>
+          </div>
+          <div class="dm-dns-check">
+            <span class="dm-dns-check__label">MX</span>
+            <span class="domain-monitor-pill domain-monitor-pill--ok">Pass</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert badge -->
+      <div class="dm-anatomy-section">
+        <h3>Alert count badge</h3>
+        <div class="dm-pill-row">
+          <span class="dm-alert-badge">1</span>
+          <span class="dm-alert-badge">2</span>
+          <span class="dm-alert-badge">9</span>
+          <span class="dm-alert-badge">12</span>
+          <span class="dm-pill-meta" style="margin-left:4px;">
+            <span>CSS: red circle, min 18px, right-padding for 2-digit</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Semantic color swatch reference -->
+      <div class="dm-anatomy-section">
+        <h3>Semantic color reference</h3>
+        <div class="dm-swatch-row">
+          <div class="dm-swatch">
+            <div class="dm-swatch-block" style="background:#00a32a;"></div>
+            <span class="dm-swatch-label">OK<br>#00a32a</span>
+          </div>
+          <div class="dm-swatch">
+            <div class="dm-swatch-block" style="background:#dba617;"></div>
+            <span class="dm-swatch-label">Warn<br>#dba617</span>
+          </div>
+          <div class="dm-swatch">
+            <div class="dm-swatch-block" style="background:#d63638;"></div>
+            <span class="dm-swatch-label">Fail<br>#d63638</span>
+          </div>
+          <div class="dm-swatch">
+            <div class="dm-swatch-block" style="background:#2271b1;"></div>
+            <span class="dm-swatch-label">Primary<br>#2271b1</span>
+          </div>
+          <div class="dm-swatch">
+            <div class="dm-swatch-block" style="background:#f0f0f1; border-color: #c3c4c7;"></div>
+            <span class="dm-swatch-label">Page bg<br>#f0f0f1</span>
+          </div>
+          <div class="dm-swatch">
+            <div class="dm-swatch-block" style="background:#646970;"></div>
+            <span class="dm-swatch-label">Muted<br>#646970</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

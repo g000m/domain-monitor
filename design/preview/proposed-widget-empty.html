@@ -1,0 +1,51 @@
+<!-- @dsCard group="Dashboard Widget" name="Proposed — empty / first-run" subtitle="No domains configured, inline add-domain CTA" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposed – Empty State Widget</title>
+<link rel="stylesheet" href="_wp-admin.css">
+</head>
+<body>
+<div class="dm-stage dm-stage--widget">
+  <p class="dm-stage-label">Dashboard Widget — Proposed — empty / first-run</p>
+
+  <div class="postbox">
+    <div class="postbox-header">
+      <h2>Domain Monitor</h2>
+    </div>
+    <div class="inside">
+
+      <!--
+        KEY UX CHANGES:
+        1. Replaces terse dev-env notice with a proper first-run empty state
+        2. Concise headline + one-sentence explanation (no internal jargon)
+        3. Inline add-domain form directly in the widget — no redirect required
+        4. Secondary escape hatch: link to full settings page
+        Current renders: plain <p> dev notice with no actionable next step.
+      -->
+      <div class="dm-empty-state">
+        <span class="dm-empty-state__icon">&#x1F310;</span>
+        <p class="dm-empty-state__title">No domains monitored yet</p>
+        <p class="dm-empty-state__body">Add a domain to start tracking expiry, DNS, and SSL status.</p>
+
+        <form method="post" action="#">
+          <input type="hidden" name="action" value="domain_monitor_add_domain" />
+          <input type="hidden" name="_wpnonce" value="abc123" />
+          <div class="dm-add-inline">
+            <input type="text" name="domain_monitor_domain" placeholder="example.com" />
+            <button type="submit" class="button button-primary">Add domain</button>
+          </div>
+        </form>
+
+        <p style="margin-top:12px;font-size:12px;color:var(--wp-text-muted);">
+          Or <a href="#" style="color:var(--wp-blue);">open Domain Monitor settings</a> for more options.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

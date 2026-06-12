@@ -1,0 +1,250 @@
+<!-- @dsCard group="Settings" name="Proposed — notification settings" subtitle="Grouped section cards: Checks, Thresholds, Notifications; inline descriptions; email DNS opt-in explained" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposed – Settings: Checks and Notifications</title>
+<link rel="stylesheet" href="_wp-admin.css">
+<style>
+  /* Page header with summary badge row */
+  .dm-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .dm-page-header h1 { margin-bottom: 0; }
+  .dm-status-summary {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 12px;
+  }
+
+  /* Tab nav (visual only) */
+  .dm-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--wp-border);
+    margin-bottom: 16px;
+  }
+  .dm-tab {
+    font-size: 13px;
+    padding: 8px 14px;
+    color: var(--wp-text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .dm-tab.active {
+    color: var(--wp-blue);
+    border-bottom-color: var(--wp-blue);
+    font-weight: 600;
+  }
+  .dm-tab:hover { color: var(--wp-blue); }
+
+  /* Section card form-table override — smaller row gap */
+  .dm-section-card .form-table th { padding-top: 12px; padding-bottom: 12px; }
+  .dm-section-card .form-table td { padding-top: 12px; padding-bottom: 12px; }
+
+  /* Email DNS highlight box */
+  .dm-email-dns-opt-in {
+    border: 1px solid var(--wp-border);
+    border-radius: var(--radius);
+    background: #f8f9ff;
+    padding: 12px 14px;
+    margin-top: 4px;
+  }
+  .dm-email-dns-opt-in .dm-check-label { align-items: flex-start; }
+  .dm-email-dns-opt-in .dm-check-what-checked {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .dm-record-tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: var(--wp-heading-bg);
+    border: 1px solid var(--wp-border);
+    color: var(--wp-text);
+    letter-spacing: .03em;
+  }
+</style>
+</head>
+<body>
+<div class="dm-stage dm-stage--settings">
+  <p class="dm-stage-label">Settings — Proposed — Checks &amp; Notifications tab</p>
+
+  <div class="wrap">
+    <div class="dm-page-header">
+      <h1>Domain Monitor</h1>
+      <div class="dm-status-summary">
+        <span class="domain-monitor-pill domain-monitor-pill--fail pill-lg">1 failing</span>
+        <span class="domain-monitor-pill domain-monitor-pill--warn pill-lg">1 warning</span>
+        <span class="domain-monitor-pill domain-monitor-pill--ok pill-lg">1 OK</span>
+      </div>
+    </div>
+
+    <!--
+      KEY UX CHANGES:
+      1. Tab navigation separates Domains / Checks+Notifications — reduces scroll length
+      2. Settings are split into named section cards (Checks, Thresholds, Notifications)
+         instead of one undifferentiated flat form-table
+      3. Checkbox rows include an inline description so the user understands what triggers
+         each notification — no guessing from label alone
+      4. Email DNS opt-in has its own highlighted card with a plain-language explanation
+         and a tag list showing exactly which records are checked (SPF, DMARC, DKIM, MX)
+      5. Save button scoped per section — no accidental bulk save
+    -->
+
+    <!-- Tab nav (visual) -->
+    <nav class="dm-tabs">
+      <a class="dm-tab" href="#">Domains</a>
+      <a class="dm-tab active" href="#">Checks &amp; Notifications</a>
+      <a class="dm-tab" href="#">Open Alerts <span class="dm-alert-badge" style="margin-left:2px;">2</span></a>
+    </nav>
+
+    <!-- Section: Checks -->
+    <div class="dm-section-card">
+      <div class="dm-section-card__header">
+        <h2>What to monitor</h2>
+        <p>Choose which change events generate an alert and email notification.</p>
+      </div>
+      <div class="dm-section-card__body">
+        <form method="post" action="#">
+          <input type="hidden" name="action" value="domain_monitor_save_settings" />
+          <input type="hidden" name="_wpnonce" value="abc123" />
+          <table class="form-table">
+            <tr>
+              <th scope="row">Status change</th>
+              <td>
+                <label class="dm-check-label">
+                  <input type="checkbox" name="notify_status_change" value="1" checked />
+                  <span class="dm-check-text">
+                    <strong>Notify when overall status changes</strong>
+                    <span class="description">Fires when a domain moves between OK, Warning, and Fail states.</span>
+                  </span>
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Nameserver change</th>
+              <td>
+                <label class="dm-check-label">
+                  <input type="checkbox" name="notify_ns_changed" value="1" checked />
+                  <span class="dm-check-text">
+                    <strong>Notify on NS record change</strong>
+                    <span class="description">Nameserver changes can indicate an unauthorised domain transfer.</span>
+                  </span>
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">A record change</th>
+              <td>
+                <label class="dm-check-label">
+                  <input type="checkbox" name="notify_a_changed" value="1" checked />
+                  <span class="dm-check-text">
+                    <strong>Notify on A record change</strong>
+                    <span class="description">IP address change may indicate DNS hijacking or unplanned server migration.</span>
+                  </span>
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">MX record change</th>
+              <td>
+                <label class="dm-check-label">
+                  <input type="checkbox" name="notify_mx_changed" value="1" checked />
+                  <span class="dm-check-text">
+                    <strong>Notify on MX record change</strong>
+                    <span class="description">Unexpected MX changes can disrupt email delivery.</span>
+                  </span>
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Registrar lock removal</th>
+              <td>
+                <label class="dm-check-label">
+                  <input type="checkbox" name="notify_transfer_lock_removed" value="1" checked />
+                  <span class="dm-check-text">
+                    <strong>Notify when transfer lock is removed</strong>
+                    <span class="description">An unlocked domain can be transferred away without further authorisation.</span>
+                  </span>
+                </label>
+              </td>
+            </tr>
+          </table>
+        </div><!-- /dm-section-card__body -->
+      </div><!-- /dm-section-card -->
+
+      <!-- Section: Email DNS health (opt-in) -->
+      <div class="dm-section-card">
+        <div class="dm-section-card__header">
+          <h2>Email DNS health</h2>
+          <p>Optional — only relevant for domains that send or receive email.</p>
+        </div>
+        <div class="dm-section-card__body">
+          <table class="form-table">
+            <tr>
+              <th scope="row">Email DNS check</th>
+              <td>
+                <div class="dm-email-dns-opt-in">
+                  <label class="dm-check-label">
+                    <input type="checkbox" name="email_dns_check_enabled" value="1" />
+                    <span class="dm-check-text">
+                      <strong>Enable email DNS health check</strong>
+                      <span class="description">
+                        Verifies that the domain's mail records are correctly configured.
+                        Enable this only for domains that send or receive email — it adds
+                        extra DNS lookups per check run.
+                      </span>
+                    </span>
+                  </label>
+                  <div class="dm-check-what-checked">
+                    <span class="dm-record-tag">SPF</span>
+                    <span class="dm-record-tag">DMARC</span>
+                    <span class="dm-record-tag">DKIM</span>
+                    <span class="dm-record-tag">MX</span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section: Notification delivery -->
+      <div class="dm-section-card">
+        <div class="dm-section-card__header">
+          <h2>Notification delivery</h2>
+          <p>Where alerts are sent when a monitored event fires.</p>
+        </div>
+        <div class="dm-section-card__body">
+          <table class="form-table">
+            <tr>
+              <th scope="row"><label for="notif-email">Notification email</label></th>
+              <td>
+                <input id="notif-email" type="email" name="notification_email" class="regular-text" value="" placeholder="Leave blank to use admin email" />
+                <p class="description">Defaults to the WordPress admin email when left blank.</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <p>
+        <button type="submit" class="button button-primary">Save settings</button>
+      </p>
+    </form>
+
+  </div><!-- .wrap -->
+</div>
+</body>
+</html>

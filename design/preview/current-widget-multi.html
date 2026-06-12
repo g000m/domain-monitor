@@ -1,0 +1,82 @@
+<!-- @dsCard group="Dashboard Widget" name="Current — multi-domain" subtitle="4 domains, mixed status (ok/warn/fail/not-checked)" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Current – Multi-domain Widget</title>
+<link rel="stylesheet" href="_wp-admin.css">
+</head>
+<body>
+<div class="dm-stage dm-stage--widget">
+  <p class="dm-stage-label">Dashboard Widget — Current — multi-domain</p>
+
+  <div class="postbox">
+    <div class="postbox-header">
+      <h2>Domain Monitor</h2>
+    </div>
+    <div class="inside">
+
+      <!-- Faithful reproduction of renderMultiDomain() output -->
+      <div class="domain-monitor-widget domain-monitor-widget--multi">
+        <table class="domain-monitor-table widefat">
+          <thead>
+            <tr>
+              <th>Domain</th>
+              <th>Status</th>
+              <th>Expires</th>
+              <th>Days</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="domain-monitor-row">
+              <td class="domain-monitor-domain-name">kitestring.studio</td>
+              <td class="domain-monitor-status">
+                <span class="domain-monitor-pill domain-monitor-pill--ok">OK</span>
+              </td>
+              <td class="domain-monitor-expiry">2027-03-14</td>
+              <td class="domain-monitor-days">275 days</td>
+            </tr>
+            <tr class="domain-monitor-row">
+              <td class="domain-monitor-domain-name">gabeherbert.com</td>
+              <td class="domain-monitor-status">
+                <span class="domain-monitor-pill domain-monitor-pill--warn">WARN</span>
+              </td>
+              <td class="domain-monitor-expiry">2026-08-02</td>
+              <td class="domain-monitor-days">51 days</td>
+            </tr>
+            <tr class="domain-monitor-row">
+              <td class="domain-monitor-domain-name">scuttlebird.com</td>
+              <td class="domain-monitor-status">
+                <span class="domain-monitor-pill domain-monitor-pill--fail">FAIL</span>
+              </td>
+              <td class="domain-monitor-expiry">2026-06-18</td>
+              <td class="domain-monitor-days">6 days</td>
+            </tr>
+            <tr class="domain-monitor-row">
+              <td class="domain-monitor-domain-name">evolutionaryherbalism.com</td>
+              <td class="domain-monitor-status">
+                <span class="domain-monitor-pill domain-monitor-pill--unknown">Not checked yet</span>
+              </td>
+              <td class="domain-monitor-expiry">—</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- manualCheckFormHtml() output -->
+        <form method="post" action="#">
+          <input type="hidden" name="action" value="domain_monitor_manual_check" />
+          <input type="hidden" name="_wpnonce" value="abc123" />
+          <p>
+            <button type="submit" class="button button-primary">Run manual check</button>
+            <span class="description">Checks the configured apex domain now.</span>
+          </p>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

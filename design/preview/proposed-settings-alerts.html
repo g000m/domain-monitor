@@ -1,0 +1,202 @@
+<!-- @dsCard group="Settings" name="Proposed — open alerts tab" subtitle="Alerts scoped per domain, resolve-all shortcut, empty state with confirmation" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposed – Settings: Open Alerts</title>
+<link rel="stylesheet" href="_wp-admin.css">
+<style>
+  /* Tab nav */
+  .dm-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--wp-border);
+    margin-bottom: 16px;
+  }
+  .dm-tab {
+    font-size: 13px;
+    padding: 8px 14px;
+    color: var(--wp-text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .dm-tab.active {
+    color: var(--wp-blue);
+    border-bottom-color: var(--wp-blue);
+    font-weight: 600;
+  }
+  .dm-tab:hover { color: var(--wp-blue); }
+
+  /* Page header */
+  .dm-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .dm-page-header h1 { margin-bottom: 0; }
+
+  /* Alert group by domain */
+  .dm-alert-group { margin-bottom: 16px; }
+  .dm-alert-group__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--wp-heading-bg);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .dm-alert-group__domain {
+    font-weight: 600;
+    font-size: 13px;
+    flex: 1;
+  }
+
+  /* Alert table within group */
+  .dm-alert-group table {
+    border: 1px solid var(--wp-border);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    overflow: hidden;
+  }
+  .dm-alert-group table thead th {
+    background: #fafafa;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--wp-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--wp-border);
+    text-align: left;
+  }
+  .dm-alert-group table tbody td {
+    padding: 8px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid #ebebec;
+    vertical-align: middle;
+  }
+  .dm-alert-group table tbody tr:last-child td { border-bottom: none; }
+  .dm-alert-group table tbody tr:hover { background: #fdf5f5; }
+
+  .dm-alert-type-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: var(--pill-fail-bg);
+    color: var(--pill-fail-text);
+    border: 1px solid var(--pill-fail-border);
+  }
+
+  .col-date { white-space: nowrap; color: var(--wp-text-muted); font-size: 12px; }
+  .col-action { width: 100px; text-align: right; }
+
+  /* Bulk resolve bar */
+  .dm-bulk-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0 12px;
+    border-bottom: 1px solid var(--wp-border);
+    margin-bottom: 12px;
+  }
+  .dm-bulk-bar .dm-meta { color: var(--wp-text-muted); }
+</style>
+</head>
+<body>
+<div class="dm-stage dm-stage--settings">
+  <p class="dm-stage-label">Settings — Proposed — Open Alerts tab</p>
+
+  <div class="wrap">
+    <div class="dm-page-header">
+      <h1>Domain Monitor</h1>
+    </div>
+
+    <!-- Tab nav -->
+    <nav class="dm-tabs">
+      <a class="dm-tab" href="#">Domains</a>
+      <a class="dm-tab" href="#">Checks &amp; Notifications</a>
+      <a class="dm-tab active" href="#">Open Alerts <span class="dm-alert-badge" style="margin-left:2px;">2</span></a>
+    </nav>
+
+    <!--
+      KEY UX CHANGES:
+      1. Alerts grouped by domain instead of one flat table — easier to triage per domain
+      2. "Resolve all for this domain" button in each group header — avoids clicking Resolve on each row
+      3. Alert type is a coloured badge, not plain text, for faster scanning
+      4. Message column gets full width; date and action are narrow fixed columns
+      5. Bulk-resolve bar at top shows total count and offers a global "Resolve all" escape hatch
+      Current: flat table, one generic Resolve button per row, no grouping, no bulk action.
+    -->
+
+    <div class="dm-bulk-bar">
+      <span class="dm-meta">2 open alerts across 1 domain</span>
+      <button class="button">Resolve all alerts</button>
+    </div>
+
+    <!-- Alert group: scuttlebird.com -->
+    <div class="dm-alert-group">
+      <div class="dm-alert-group__header">
+        <span class="dm-alert-group__domain">scuttlebird.com</span>
+        <span class="domain-monitor-pill domain-monitor-pill--fail">Fail</span>
+        <span class="dm-alert-badge">2</span>
+        <button class="button button-small" style="margin-left:8px;">Resolve all</button>
+      </div>
+      <table class="widefat">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Message</th>
+            <th class="col-date">Date</th>
+            <th class="col-action">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="dm-alert-type-badge">Transfer lock removed</span></td>
+            <td>Lock status changed from locked to unlocked.</td>
+            <td class="col-date">Jun 11, 2026</td>
+            <td class="col-action">
+              <form method="post" action="#" style="display:inline">
+                <input type="hidden" name="action" value="domain_monitor_resolve_alert" />
+                <input type="hidden" name="_wpnonce" value="abc123" />
+                <input type="hidden" name="domain_monitor_alert_id" value="7" />
+                <button type="submit" class="button button-small">Resolve</button>
+              </form>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="dm-alert-type-badge">Nameserver changed</span></td>
+            <td>NS changed: ns2.oldregistrar.net &rarr; ns2.hover.com</td>
+            <td class="col-date">Jun 10, 2026</td>
+            <td class="col-action">
+              <form method="post" action="#" style="display:inline">
+                <input type="hidden" name="action" value="domain_monitor_resolve_alert" />
+                <input type="hidden" name="_wpnonce" value="abc123" />
+                <input type="hidden" name="domain_monitor_alert_id" value="6" />
+                <button type="submit" class="button button-small">Resolve</button>
+              </form>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty state preview (shown after all alerts resolved) -->
+    <div style="margin-top:24px; padding-top:16px; border-top: 1px solid var(--wp-border);">
+      <p class="dm-stage-label" style="margin-bottom:8px;">Empty state (after resolving all)</p>
+      <div class="dm-empty-state" style="background:var(--wp-surface);border:1px solid var(--wp-border);border-radius:var(--radius);padding:24px;">
+        <span class="dm-empty-state__icon">&#x2713;</span>
+        <p class="dm-empty-state__title">No open alerts</p>
+        <p class="dm-empty-state__body">All alerts have been resolved. Domain Monitor will notify you if a new issue is detected.</p>
+      </div>
+    </div>
+
+  </div><!-- .wrap -->
+</div>
+</body>
+</html>

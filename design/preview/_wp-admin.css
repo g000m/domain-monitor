@@ -1,0 +1,676 @@
+/*
+ * _wp-admin.css — Shared WP admin style emulation for Domain Monitor design previews.
+ * Self-contained. No external requests. Vanilla CSS only.
+ * Approximates WordPress 6.x core admin: colors, typography, form-table, postbox, widefat.
+ */
+
+/* ------------------------------------------------------------------ Reset */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ------------------------------------------------------------------ Tokens */
+:root {
+    --wp-blue:        #2271b1;
+    --wp-blue-hover:  #135e96;
+    --wp-red:         #d63638;
+    --wp-amber:       #dba617;
+    --wp-green:       #00a32a;
+    --wp-bg:          #f0f0f1;
+    --wp-border:      #c3c4c7;
+    --wp-border-dark: #8c8f94;
+    --wp-text:        #1d2327;
+    --wp-text-muted:  #646970;
+    --wp-white:       #ffffff;
+    --wp-surface:     #ffffff;
+    --wp-heading-bg:  #f6f7f7;
+
+    --pill-ok-bg:     #edfaef;
+    --pill-ok-text:   #007017;
+    --pill-ok-border: #b8e6bf;
+
+    --pill-warn-bg:   #fcf9e8;
+    --pill-warn-text: #8a6116;
+    --pill-warn-border: #f0d97c;
+
+    --pill-fail-bg:   #fce8e8;
+    --pill-fail-text: #8d1c1e;
+    --pill-fail-border: #f5b5b6;
+
+    --pill-unknown-bg:     #f6f7f7;
+    --pill-unknown-text:   #646970;
+    --pill-unknown-border: #c3c4c7;
+
+    --font: -apple-system, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    --font-size: 13px;
+    --line-height: 1.6;
+    --radius: 3px;
+}
+
+/* ------------------------------------------------------------------ Stage */
+body {
+    font-family: var(--font);
+    font-size: var(--font-size);
+    line-height: var(--line-height);
+    color: var(--wp-text);
+    background: var(--wp-bg);
+    padding: 24px;
+}
+
+.dm-stage {
+    margin: 0 auto;
+    background: var(--wp-bg);
+}
+
+.dm-stage--widget {
+    width: 400px;
+}
+
+.dm-stage--settings {
+    width: 800px;
+}
+
+/* Stage label (for design-tool context) */
+.dm-stage-label {
+    font-size: 11px;
+    color: var(--wp-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: 8px;
+}
+
+/* ------------------------------------------------------------------ WP .wrap */
+.wrap {
+    margin: 10px 20px 0 2px;
+}
+
+.wrap h1 {
+    font-size: 23px;
+    font-weight: 400;
+    line-height: 1.3;
+    color: var(--wp-text);
+    margin: 0 0 16px;
+    padding: 9px 0 4px;
+}
+
+.wrap h2 {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--wp-text);
+    margin: 1.5em 0 .75em;
+    padding: 0;
+    border-bottom: 1px solid var(--wp-border);
+    padding-bottom: 6px;
+}
+
+.wrap h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--wp-text);
+    margin: 0 0 8px;
+}
+
+/* ------------------------------------------------------------------ Postbox / dashboard widget chrome */
+.postbox {
+    min-width: 255px;
+    border: 1px solid var(--wp-border);
+    background: var(--wp-surface);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.postbox .postbox-header {
+    border-bottom: 1px solid var(--wp-border);
+    display: flex;
+    align-items: center;
+    padding: 0;
+    min-height: 36px;
+}
+
+.postbox .postbox-header h2,
+.postbox .hndle {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 12px;
+    line-height: 1.4;
+    margin: 0;
+    flex: 1;
+    color: var(--wp-text);
+}
+
+.postbox .inside {
+    padding: 0 12px 12px;
+    line-height: 1.6;
+}
+
+/* ------------------------------------------------------------------ WP table primitives */
+table {
+    border-spacing: 0;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.widefat {
+    border: 1px solid var(--wp-border);
+    border-radius: var(--radius);
+    background: var(--wp-surface);
+}
+
+.widefat thead th,
+.widefat tfoot td,
+.widefat tfoot th {
+    background: var(--wp-heading-bg);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--wp-border);
+    text-align: left;
+    color: var(--wp-text);
+}
+
+.widefat tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e6e6e7;
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+.widefat tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.widefat.striped tbody tr:nth-child(odd) {
+    background: #f9f9f9;
+}
+
+.widefat tbody tr:hover {
+    background: #f0f5fa;
+}
+
+/* ------------------------------------------------------------------ form-table */
+.form-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: .5em;
+}
+
+.form-table th {
+    font-weight: 400;
+    font-size: 13px;
+    width: 250px;
+    vertical-align: top;
+    text-align: left;
+    padding: 15px 10px 15px 0;
+    line-height: 1.4;
+    color: var(--wp-text);
+}
+
+.form-table td {
+    font-size: 13px;
+    padding: 15px 10px;
+    vertical-align: middle;
+}
+
+.form-table .description {
+    font-size: 13px;
+    color: var(--wp-text-muted);
+    margin-top: 4px;
+    display: block;
+    font-style: normal;
+}
+
+/* ------------------------------------------------------------------ Inputs */
+input[type="text"],
+input[type="email"],
+input[type="url"],
+input[type="number"],
+select,
+textarea {
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.4;
+    border: 1px solid var(--wp-border);
+    border-radius: var(--radius);
+    padding: 3px 5px;
+    color: var(--wp-text);
+    background: var(--wp-white);
+    outline: none;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--wp-blue);
+    box-shadow: 0 0 0 1px var(--wp-blue);
+}
+
+input.regular-text {
+    width: 25em;
+}
+
+input.small-text {
+    width: 50px;
+}
+
+input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--wp-blue);
+}
+
+label {
+    cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ Buttons */
+.button,
+.button-primary,
+.button-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font);
+    font-size: 13px;
+    line-height: 2.15384615;
+    height: 30px;
+    padding: 0 10px;
+    cursor: pointer;
+    border-radius: var(--radius);
+    white-space: nowrap;
+    vertical-align: top;
+    text-decoration: none;
+    transition: background .1s, border-color .1s;
+}
+
+.button,
+.button-secondary {
+    background: #f6f7f7;
+    border: 1px solid var(--wp-border-dark);
+    color: var(--wp-text);
+}
+
+.button:hover,
+.button-secondary:hover {
+    background: #f0f0f1;
+    border-color: #8c8f94;
+    color: var(--wp-text);
+}
+
+.button-primary {
+    background: var(--wp-blue);
+    border: 1px solid var(--wp-blue);
+    color: var(--wp-white);
+}
+
+.button-primary:hover {
+    background: var(--wp-blue-hover);
+    border-color: var(--wp-blue-hover);
+    color: var(--wp-white);
+}
+
+.button-link {
+    background: none;
+    border: none;
+    color: var(--wp-blue);
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0;
+    height: auto;
+    line-height: inherit;
+}
+
+.button-link-delete {
+    color: var(--wp-red);
+}
+
+.button-link:hover {
+    color: var(--wp-blue-hover);
+}
+
+.button-small {
+    height: 24px;
+    line-height: 22px;
+    padding: 0 8px;
+    font-size: 11px;
+}
+
+/* ------------------------------------------------------------------ Status pills */
+.domain-monitor-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 3px 8px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.domain-monitor-pill--ok {
+    background: var(--pill-ok-bg);
+    color: var(--pill-ok-text);
+    border-color: var(--pill-ok-border);
+}
+
+.domain-monitor-pill--warn {
+    background: var(--pill-warn-bg);
+    color: var(--pill-warn-text);
+    border-color: var(--pill-warn-border);
+}
+
+.domain-monitor-pill--fail {
+    background: var(--pill-fail-bg);
+    color: var(--pill-fail-text);
+    border-color: var(--pill-fail-border);
+}
+
+.domain-monitor-pill--unknown {
+    background: var(--pill-unknown-bg);
+    color: var(--pill-unknown-text);
+    border-color: var(--pill-unknown-border);
+}
+
+/* Proposed: slightly larger pills for widget table */
+.pill-lg {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 10px;
+}
+
+/* ------------------------------------------------------------------ Alert badge */
+.dm-alert-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--wp-red);
+    color: #fff;
+    border-radius: 9px;
+    padding: 0 4px;
+    line-height: 1;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+/* ------------------------------------------------------------------ Notice / callout */
+.notice {
+    background: var(--wp-surface);
+    border-left: 4px solid var(--wp-blue);
+    padding: 12px;
+    margin: 16px 0;
+    border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.notice p { margin: 0; }
+
+.notice-warning { border-left-color: var(--wp-amber); }
+.notice-error   { border-left-color: var(--wp-red); }
+.notice-success { border-left-color: var(--wp-green); }
+
+/* ------------------------------------------------------------------ Description / helper text */
+.description {
+    font-size: 13px;
+    color: var(--wp-text-muted);
+    font-style: normal;
+}
+
+/* ------------------------------------------------------------------ Misc utilities */
+.dm-meta {
+    font-size: 12px;
+    color: var(--wp-text-muted);
+}
+
+.dm-days-urgent {
+    color: var(--wp-red);
+    font-weight: 600;
+}
+
+.dm-days-warn {
+    color: var(--wp-amber);
+    font-weight: 600;
+}
+
+.dm-days-ok {
+    color: var(--wp-text-muted);
+}
+
+.dm-domain-link {
+    color: var(--wp-text);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.dm-domain-link:hover {
+    color: var(--wp-blue);
+    text-decoration: underline;
+}
+
+.dm-row-actions {
+    display: none;
+    font-size: 12px;
+    color: var(--wp-text-muted);
+    margin-top: 2px;
+    gap: 4px;
+}
+
+.dm-row-actions a {
+    color: var(--wp-blue);
+    text-decoration: none;
+}
+
+.dm-row-actions a:hover { text-decoration: underline; }
+
+.dm-row-actions a.delete { color: var(--wp-red); }
+
+tr:hover .dm-row-actions {
+    display: flex;
+}
+
+/* ------------------------------------------------------------------ Section card (proposed settings) */
+.dm-section-card {
+    background: var(--wp-surface);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+}
+
+.dm-section-card__header {
+    background: var(--wp-heading-bg);
+    border-bottom: 1px solid var(--wp-border);
+    padding: 10px 16px;
+    border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.dm-section-card__header h2 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0;
+    border: none;
+    padding: 0;
+    color: var(--wp-text);
+}
+
+.dm-section-card__header p {
+    font-size: 12px;
+    color: var(--wp-text-muted);
+    margin: 2px 0 0;
+}
+
+.dm-section-card__body {
+    padding: 0 16px 4px;
+}
+
+/* ------------------------------------------------------------------ Email DNS health grid */
+.dm-email-dns-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.dm-dns-check {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 8px 10px;
+    background: var(--wp-heading-bg);
+    border: 1px solid var(--wp-border);
+    border-radius: var(--radius);
+}
+
+.dm-dns-check__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--wp-text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+/* ------------------------------------------------------------------ Empty state */
+.dm-empty-state {
+    text-align: center;
+    padding: 20px 12px 16px;
+}
+
+.dm-empty-state__icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+    display: block;
+    opacity: .5;
+}
+
+.dm-empty-state__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--wp-text);
+    margin-bottom: 6px;
+}
+
+.dm-empty-state__body {
+    font-size: 13px;
+    color: var(--wp-text-muted);
+    margin-bottom: 14px;
+    max-width: 280px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.dm-add-inline {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.dm-add-inline input[type="text"] {
+    width: 180px;
+}
+
+/* ------------------------------------------------------------------ Domain list card (proposed) */
+.dm-domain-card {
+    border: 1px solid var(--wp-border);
+    border-radius: var(--radius);
+    background: var(--wp-surface);
+    margin-bottom: 8px;
+}
+
+.dm-domain-card__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--wp-border);
+    background: var(--wp-heading-bg);
+    border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.dm-domain-card__name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--wp-text);
+    flex: 1;
+}
+
+.dm-domain-card__body {
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.dm-domain-card__field label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--wp-text-muted);
+    display: block;
+    margin-bottom: 2px;
+}
+
+.dm-domain-card__field span {
+    font-size: 13px;
+    color: var(--wp-text);
+}
+
+.dm-domain-card__actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 8px 14px;
+    border-top: 1px solid var(--wp-border);
+}
+
+/* ------------------------------------------------------------------ Inline add-domain form */
+.dm-add-form {
+    background: var(--wp-surface);
+    border: 1px dashed var(--wp-border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-top: 12px;
+}
+
+.dm-add-form label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+/* ------------------------------------------------------------------ Checkbox label rows */
+.dm-check-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.dm-check-label input[type="checkbox"] {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.dm-check-label .dm-check-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.dm-check-label .dm-check-text strong {
+    font-size: 13px;
+}
+
+.dm-check-label .dm-check-text .description {
+    font-size: 12px;
+}
