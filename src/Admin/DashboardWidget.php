@@ -44,6 +44,10 @@ final class DashboardWidget
 
     public function renderHtml(): string
     {
+        if ($this->domain === '') {
+            return $this->devNoticeHtml();
+        }
+
         $domain     = $this->escapeHtml($this->domain);
         $status     = $this->statusLabel();
         $message    = $this->messageHtml();
@@ -64,6 +68,19 @@ final class DashboardWidget
     {$form}
 </div>
 HTML;
+    }
+
+    /**
+     * Rendered when no monitorable domain has been detected (local/dev environment).
+     */
+    private function devNoticeHtml(): string
+    {
+        $message = $this->escapeHtml($this->translate(
+            'No public domain detected. This site appears to be a local or development environment. '
+            . 'Add a domain below, or define DOMAIN_MONITOR_PRIMARY_DOMAIN in wp-config.php.'
+        ));
+
+        return '<div class="domain-monitor-widget"><p class="domain-monitor-dev-notice">' . $message . '</p></div>';
     }
 
     private function statusLabel(): string

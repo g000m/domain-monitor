@@ -71,7 +71,11 @@ HTML;
     private function domainRowsHtml(): string
     {
         if ($this->domains === []) {
-            return '<p>' . $this->escapeHtml($this->translate('No domains are monitored yet.')) . '</p>';
+            $message = $this->translate(
+                'No public domain detected. This site appears to be a local or development environment. '
+                . 'Add a domain below, or define DOMAIN_MONITOR_PRIMARY_DOMAIN in wp-config.php.'
+            );
+            return '<p class="domain-monitor-dev-notice">' . $this->escapeHtml($message) . '</p>';
         }
 
         $html = '<div class="domain-monitor-domains">';

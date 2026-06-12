@@ -108,6 +108,17 @@ final class ApexDomain
     }
 
     /**
+     * Expose the loaded PSL data for external consumers (e.g. MonitorableHost).
+     * The array is lazily loaded and cached, so this is cheap to call repeatedly.
+     *
+     * @return array<string,string>
+     */
+    public static function pslData(): array
+    {
+        return self::loadPsl();
+    }
+
+    /**
      * Load the PSL data array from the generated data file.
      * Result is cached in a static property so the file is only require'd once
      * per PHP process.

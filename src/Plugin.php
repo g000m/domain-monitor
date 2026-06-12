@@ -17,6 +17,7 @@ use DomainMonitor\Checks\StreamCertificateFetcher;
 use DomainMonitor\Checks\WordPressHttpClient;
 use DomainMonitor\Diff\SnapshotDiffer;
 use DomainMonitor\Domain\ApexDomain;
+use DomainMonitor\Domain\MonitorableHost;
 use DomainMonitor\Domain\StatusCalculator;
 use DomainMonitor\Notifications\AdminNotifier;
 use DomainMonitor\Notifications\DomainNotifier;
@@ -221,7 +222,9 @@ final class Plugin
 
         $newStatus = $fresh->statusCode($this->alertsForRecord($fresh));
         if ($this->isWorseStatus($previousStatus, $newStatus)) {
-            $this->notifier()->notifyStatusChange($fresh, $previousStatus, $newStatus);
+            if ($this->shouldNotify('status_change', $fresh, ['from' => $previousStatus, 'to' => $newStatus])) {
+                $this->notifier()->notifyStatusChange($fresh, $previousStatus, $newStatus);
+            }
         }
 
         if (function_exists('do_action')) {
@@ -259,7 +262,9 @@ final class Plugin
                 if ($recordType === 'ns') {
                     $this->alertStore()->createAlert($domainId, 'ns_changed', $diff->message());
                     // NS change is the hijack signal: always notify.
-                    $this->notifier()->notifyStatusChange($fresh, 'ok', StatusCalculator::STATUS_WARN);
+                    if ($this->shouldNotify('ns_changed', $fresh, ['message' => $diff->message()])) {
+                        $this->notifier()->notifyStatusChange($fresh, 'ok', StatusCalculator::STATUS_WARN);
+                    }
                 } elseif ($recordType === 'a') {
                     $this->alertStore()->createAlert($domainId, 'a_changed', $diff->message());
                 } elseif ($recordType === 'mx') {
@@ -273,8 +278,32 @@ final class Plugin
         $newTransferLocked = $fresh->rdapTransferLocked();
         if ($previousTransferLocked === true && $newTransferLocked === false) {
             $this->alertStore()->createAlert($domainId, 'transfer_lock_removed', 'Domain transfer lock was removed.');
-            $this->notifier()->notifyStatusChange($fresh, 'ok', StatusCalculator::STATUS_WARN);
+            if ($this->shouldNotify('transfer_lock_removed', $fresh, ['message' => 'Domain transfer lock was removed.'])) {
+                $this->notifier()->notifyStatusChange($fresh, 'ok', StatusCalculator::STATUS_WARN);
+            }
         }
+    }
+
+    /**
+     * Returns true when a notification should be dispatched.
+     *
+     * Applies the domain_monitor_should_notify filter when apply_filters is
+     * available, defaulting to true. The $type values are:
+     *   'status_change'        -- domain status worsened
+     *   'ns_changed'           -- nameserver change detected
+     *   'transfer_lock_removed' -- domain transfer lock was removed
+     *
+     * @param array<string,mixed> $context Additional context (e.g. from/to status or diff message).
+     */
+    protected function shouldNotify(string $type, DomainRecord $record, array $context): bool
+    {
+        if (function_exists('apply_filters')) {
+            /** @var mixed $result */
+            $result = apply_filters('domain_monitor_should_notify', true, $type, $record, $context);
+            return (bool) $result;
+        }
+
+        return true;
     }
 
     private function verifyAdminAction(string $nonceAction): void
@@ -367,7 +396,15 @@ final class Plugin
 
     private function currentDomain(): string
     {
-        return ApexDomain::fromHost($this->currentHost());
+        $host = $this->currentHost();
+
+        // Return empty string so DashboardWidget shows the dev-environment notice
+        // instead of a domain that can never be monitored.
+        if (! MonitorableHost::isMonitorable($host)) {
+            return '';
+        }
+
+        return ApexDomain::fromHost($host);
     }
 
     private function currentHost(): string
