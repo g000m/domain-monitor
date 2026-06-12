@@ -9,25 +9,37 @@ final class DomainCheckRunner implements CheckRunner
     private $dnsChecker;
     /** @var object */
     private $rdapChecker;
+    /** @var object */
+    private $sslChecker;
     /** @var callable */
     private $clock;
 
     /**
-     * @param object $dnsChecker Object exposing check(string $domain): DnsResult.
-     * @param object $rdapChecker Object exposing check(string $domain): RdapResult.
-     * @param callable|null $clock Returns MySQL datetime string.
+     * @param object        $dnsChecker  Object exposing check(string $domain): DnsResult.
+     * @param object        $rdapChecker Object exposing check(string $domain): RdapResult.
+     * @param object|callable|null $sslCheckerOrClock Object exposing check(string $domain): SslResult,
+     *                             OR (legacy) a callable clock for backward-compat with existing tests.
+     * @param callable|null $clock Returns MySQL datetime string (when sslChecker is provided explicitly).
      */
-    public function __construct($dnsChecker, $rdapChecker, ?callable $clock = null)
+    public function __construct($dnsChecker, $rdapChecker, $sslCheckerOrClock = null, ?callable $clock = null)
     {
-        $this->dnsChecker = $dnsChecker;
+        $this->dnsChecker  = $dnsChecker;
         $this->rdapChecker = $rdapChecker;
-        $this->clock = $clock ?? static function (): string {
-            if (function_exists('current_time')) {
-                return (string) current_time('mysql');
-            }
 
-            return gmdate('Y-m-d H:i:s');
-        };
+        // Back-compat: if arg 3 is callable it is the old clock, not an ssl checker.
+        if (is_callable($sslCheckerOrClock)) {
+            $this->sslChecker = null;
+            $this->clock      = $sslCheckerOrClock;
+        } else {
+            $this->sslChecker = $sslCheckerOrClock;
+            $this->clock      = $clock ?? static function (): string {
+                if (function_exists('current_time')) {
+                    return (string) current_time('mysql');
+                }
+
+                return gmdate('Y-m-d H:i:s');
+            };
+        }
     }
 
     /** @return array<string,string|null> */
@@ -36,11 +48,16 @@ final class DomainCheckRunner implements CheckRunner
         $clock = $this->clock;
         $checkedAt = $clock();
 
+        $dnsApex = null;
         try {
             /** @var DnsResult $dns */
             $dns = $this->dnsChecker->check($domain);
             $dnsStatus  = $dns->status();
             $dnsMessage = $dns->message();
+            $records    = $dns->records();
+            if ($records !== []) {
+                $dnsApex = json_encode($records);
+            }
         } catch (\Throwable $e) {
             $dnsStatus  = 'degraded';
             $dnsMessage = $e->getMessage();
@@ -49,25 +66,60 @@ final class DomainCheckRunner implements CheckRunner
         try {
             /** @var RdapResult $rdap */
             $rdap = $this->rdapChecker->check($domain);
-            $rdapStatus    = $rdap->status();
-            $rdapMessage   = $rdap->message();
-            $rdapRegistrar = $rdap->registrar();
-            $rdapExpiresAt = $rdap->expiresAt();
+            $rdapStatus         = $rdap->status();
+            $rdapMessage        = $rdap->message();
+            $rdapRegistrar      = $rdap->registrar();
+            $rdapExpiresAt      = $rdap->expiresAt();
+            $rdapTransferLocked = $rdap->transferLocked();
+            $rdapDomainStatuses = $rdap->domainStatuses();
         } catch (\Throwable $e) {
-            $rdapStatus    = 'degraded';
-            $rdapMessage   = $e->getMessage();
-            $rdapRegistrar = null;
-            $rdapExpiresAt = null;
+            $rdapStatus         = 'degraded';
+            $rdapMessage        = $e->getMessage();
+            $rdapRegistrar      = null;
+            $rdapExpiresAt      = null;
+            $rdapTransferLocked = null;
+            $rdapDomainStatuses = [];
         }
 
-        return [
-            'dns_status'      => $dnsStatus,
-            'dns_message'     => $dnsMessage,
-            'rdap_status'     => $rdapStatus,
-            'rdap_message'    => $rdapMessage,
-            'rdap_registrar'  => $rdapRegistrar,
-            'rdap_expires_at' => $rdapExpiresAt,
-            'last_checked_at' => $checkedAt,
+        $sslStatus    = null;
+        $sslMessage   = null;
+        $sslExpiresAt = null;
+        $sslIssuer    = null;
+
+        if ($this->sslChecker !== null) {
+            try {
+                /** @var SslResult $ssl */
+                $ssl          = $this->sslChecker->check($domain);
+                $sslStatus    = $ssl->status();
+                $sslMessage   = $ssl->message();
+                $sslExpiresAt = $ssl->expiresAt();
+                $sslIssuer    = $ssl->issuer();
+            } catch (\Throwable $e) {
+                $sslStatus  = 'degraded';
+                $sslMessage = $e->getMessage();
+            }
+        }
+
+        $result = [
+            'dns_status'           => $dnsStatus,
+            'dns_message'          => $dnsMessage,
+            'rdap_status'          => $rdapStatus,
+            'rdap_message'         => $rdapMessage,
+            'rdap_registrar'       => $rdapRegistrar,
+            'rdap_expires_at'      => $rdapExpiresAt,
+            'rdap_transfer_locked' => $rdapTransferLocked !== null ? ($rdapTransferLocked ? '1' : '0') : null,
+            'rdap_domain_statuses' => $rdapDomainStatuses !== [] ? json_encode($rdapDomainStatuses) : null,
+            'ssl_status'           => $sslStatus,
+            'ssl_message'          => $sslMessage,
+            'ssl_expires_at'       => $sslExpiresAt,
+            'ssl_issuer'           => $sslIssuer,
+            'last_checked_at'      => $checkedAt,
         ];
+
+        if ($dnsApex !== null) {
+            $result['dns_apex'] = $dnsApex;
+        }
+
+        return $result;
     }
 }

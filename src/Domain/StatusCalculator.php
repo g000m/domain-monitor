@@ -11,9 +11,11 @@ final class StatusCalculator
     public const STATUS_WARN = 'warn';
     public const STATUS_FAIL = 'fail';
 
-    private const RECENT_RECOVERY_DAYS = 3;
-    private const EXPIRY_RED_DAYS      = 7;
-    private const EXPIRY_AMBER_DAYS    = 30;
+    private const RECENT_RECOVERY_DAYS  = 3;
+    private const EXPIRY_RED_DAYS       = 7;
+    private const EXPIRY_AMBER_DAYS     = 30;
+    private const SSL_EXPIRY_RED_DAYS   = 3;
+    private const SSL_EXPIRY_AMBER_DAYS = 14;
 
     /**
      * @param array<string,mixed> $snapshot
@@ -47,7 +49,26 @@ final class StatusCalculator
             }
         }
 
-        foreach (['rdap', 'dns', 'http'] as $check) {
+        $sslExpiresAt = $snapshot['ssl']['expires_at'] ?? null;
+        if (is_string($sslExpiresAt) && $sslExpiresAt !== '') {
+            $sslExpiry = new DateTimeImmutable($sslExpiresAt);
+            if ($sslExpiry < $now) {
+                return new DomainStatus(self::STATUS_FAIL, 'SSL certificate has expired.');
+            }
+
+            $sslRedThreshold   = $now->modify('+' . self::SSL_EXPIRY_RED_DAYS . ' days');
+            $sslAmberThreshold = $now->modify('+' . self::SSL_EXPIRY_AMBER_DAYS . ' days');
+
+            if ($sslExpiry <= $sslRedThreshold) {
+                return new DomainStatus(self::STATUS_FAIL, 'SSL certificate expires within ' . self::SSL_EXPIRY_RED_DAYS . ' days.');
+            }
+
+            if ($sslExpiry <= $sslAmberThreshold) {
+                return new DomainStatus(self::STATUS_WARN, 'SSL certificate expires within ' . self::SSL_EXPIRY_AMBER_DAYS . ' days.');
+            }
+        }
+
+        foreach (['rdap', 'dns', 'ssl', 'http'] as $check) {
             $checkStatus = $snapshot[$check]['status'] ?? null;
             if ($checkStatus === 'fail') {
                 return new DomainStatus(self::STATUS_FAIL, ucfirst($check) . ' check failed.');

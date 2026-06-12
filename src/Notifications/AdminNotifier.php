@@ -35,21 +35,41 @@ final class AdminNotifier implements DomainNotifier
      */
     public function composeMessage(DomainRecord $record, string $from, string $to): array
     {
-        $domain  = $record->domain();
-        $subject = sprintf('[Domain Monitor] %s status changed: %s to %s', $domain, strtoupper($from), strtoupper($to));
+        $domain = $record->domain();
 
-        $body  = "Domain Monitor has detected a status change for one of your monitored domains.\n\n";
-        $body .= sprintf("Domain  : %s\n", $domain);
-        $body .= sprintf("Previous: %s\n", strtoupper($from));
-        $body .= sprintf("Current : %s\n", strtoupper($to));
+        // Subject: translate the template, then sprintf the data values in.
+        $subjectTemplate = $this->translate('[Domain Monitor] %s status changed: %s to %s');
+        $subject = sprintf($subjectTemplate, $domain, strtoupper($from), strtoupper($to));
+
+        // Body: each translatable segment is wrapped independently so translators
+        // can reorder the label/value pairs for their locale.
+        $body  = $this->translate('Domain Monitor has detected a status change for one of your monitored domains.') . "\n\n";
+        $body .= sprintf($this->translate('Domain  : %s') . "\n", $domain);
+        $body .= sprintf($this->translate('Previous: %s') . "\n", strtoupper($from));
+        $body .= sprintf($this->translate('Current : %s') . "\n", strtoupper($to));
 
         $reason = $record->statusReason();
         if ($reason !== '') {
-            $body .= sprintf("Reason  : %s\n", $reason);
+            $body .= sprintf($this->translate('Reason  : %s') . "\n", $reason);
         }
 
-        $body .= "\nLog in to your WordPress admin to review the domain status.";
+        $body .= "\n" . $this->translate('Log in to your WordPress admin to review the domain status.');
 
         return ['subject' => $subject, 'body' => $body];
+    }
+
+    /**
+     * Translate a string using the plugin text domain.
+     * Falls back to the raw string when the WP i18n functions are not available
+     * (e.g. in unit tests that run outside WordPress).
+     */
+    private function translate(string $text): string
+    {
+        if (function_exists('__')) {
+            // @phan-suppress-next-line PhanUndeclaredFunction
+            return __($text, 'domain-monitor');
+        }
+
+        return $text;
     }
 }

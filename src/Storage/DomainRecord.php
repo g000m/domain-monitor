@@ -63,15 +63,17 @@ final class DomainRecord
      *
      * A record that has never been checked (no snapshot, no last_checked_at)
      * reports warn so the admin knows it still needs a first check.
+     *
+     * @param list<array<string,mixed>> $alerts Open alerts for this domain (from AlertStore).
      */
-    public function statusCode(): string
+    public function statusCode(array $alerts = []): string
     {
         if ($this->lastCheckedAt() === '' && $this->snapshot() === []) {
             return StatusCalculator::STATUS_WARN;
         }
 
         $calculator = new StatusCalculator();
-        $result = $calculator->calculate($this->snapshot(), [], new DateTimeImmutable());
+        $result = $calculator->calculate($this->snapshot(), $alerts, new DateTimeImmutable());
         return $result->code();
     }
 
@@ -109,6 +111,36 @@ final class DomainRecord
     {
         $snapshot = $this->snapshot();
         return (string) ($snapshot['rdap']['expires_at'] ?? $this->data['rdap_expires_at'] ?? '');
+    }
+
+    /** @return bool|null */
+    public function rdapTransferLocked()
+    {
+        $snapshot = $this->snapshot();
+        $val = $snapshot['rdap']['transfer_locked'] ?? null;
+        if ($val === null) {
+            return null;
+        }
+
+        return (bool) $val;
+    }
+
+    public function sslStatus(): string
+    {
+        $snapshot = $this->snapshot();
+        return (string) ($snapshot['ssl']['status'] ?? '');
+    }
+
+    public function sslExpiresAt(): string
+    {
+        $snapshot = $this->snapshot();
+        return (string) ($snapshot['ssl']['expires_at'] ?? '');
+    }
+
+    public function sslIssuer(): string
+    {
+        $snapshot = $this->snapshot();
+        return (string) ($snapshot['ssl']['issuer'] ?? '');
     }
 
     public function lastCheckedAt(): string

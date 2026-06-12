@@ -6,11 +6,16 @@ namespace DomainMonitor\Storage;
 final class DomainTable
 {
     public const OPTION_SCHEMA_VERSION = 'domain_monitor_schema_version';
-    public const SCHEMA_VERSION = '2';
+    public const SCHEMA_VERSION = '3';
 
     public static function tableName(string $prefix): string
     {
         return $prefix . 'domainmon_domains';
+    }
+
+    public static function alertsTableName(string $prefix): string
+    {
+        return $prefix . 'domainmon_alerts';
     }
 
     public static function schemaSql(string $tableName, string $collate): string
@@ -47,6 +52,31 @@ final class DomainTable
             KEY status (status),
             KEY is_active (is_active),
             KEY owner_site_id (owner_site_id)
+        ){$collation};";
+    }
+
+    public static function alertsSchemaSql(string $alertsTableName, string $collate): string
+    {
+        $collate = trim($collate);
+        if ($collate === '') {
+            $collation = '';
+        } elseif (stripos($collate, 'COLLATE') === false && stripos($collate, 'CHARACTER SET') === false) {
+            $collation = ' COLLATE ' . $collate;
+        } else {
+            $collation = ' ' . $collate;
+        }
+
+        return "CREATE TABLE {$alertsTableName} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            domain_id bigint(20) unsigned NOT NULL,
+            type varchar(64) NOT NULL,
+            message varchar(500) NOT NULL DEFAULT '',
+            details mediumtext NULL,
+            created_at datetime NOT NULL,
+            resolved_at datetime NULL,
+            PRIMARY KEY  (id),
+            KEY domain_id (domain_id),
+            KEY resolved_at (resolved_at)
         ){$collation};";
     }
 }

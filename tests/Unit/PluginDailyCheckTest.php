@@ -6,6 +6,7 @@ namespace DomainMonitor\Tests\Unit;
 use DomainMonitor\Checks\CheckRunner;
 use DomainMonitor\Domain\StatusCalculator;
 use DomainMonitor\Plugin;
+use DomainMonitor\Storage\ArrayAlertStore;
 use DomainMonitor\Storage\ArrayDomainStore;
 use DomainMonitor\Storage\DomainRepository;
 use DomainMonitor\Tests\Unit\Support\FakeCheckRunner;
@@ -23,7 +24,7 @@ final class PluginDailyCheckTest extends TestCase
         FakeCheckRunner $runner,
         FakeNotifier $notifier
     ): Plugin {
-        return new Plugin($repository, $runner, $notifier);
+        return new Plugin($repository, $runner, $notifier, new ArrayAlertStore());
     }
 
     /** Returns a result array that the StatusCalculator will score as ok. */

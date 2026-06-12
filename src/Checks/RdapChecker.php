@@ -35,7 +35,17 @@ final class RdapChecker
             return new RdapResult('degraded', null, null, 'We had trouble reading RDAP registration details.');
         }
 
-        return new RdapResult('ok', $this->extractExpiration($payload), $this->extractRegistrar($payload));
+        $domainStatuses = $this->extractDomainStatuses($payload);
+        $transferLocked = $this->deriveTransferLocked($domainStatuses);
+
+        return new RdapResult(
+            'ok',
+            $this->extractExpiration($payload),
+            $this->extractRegistrar($payload),
+            '',
+            $transferLocked,
+            $domainStatuses
+        );
     }
 
     /** @param array<string,mixed> $payload */
@@ -57,6 +67,51 @@ final class RdapChecker
         }
 
         return null;
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @return list<string>
+     */
+    private function extractDomainStatuses(array $payload): array
+    {
+        $statuses = $payload['status'] ?? [];
+        if (! is_array($statuses)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($statuses as $s) {
+            if (is_string($s)) {
+                $result[] = $s;
+            }
+        }
+
+        return $result;
+    }
+
+    /** @param list<string> $statuses */
+    private function deriveTransferLocked(array $statuses): ?bool
+    {
+        if ($statuses === []) {
+            return null;
+        }
+
+        // Normalize a status string to a canonical slug for comparison.
+        // Handles camelCase ("clientTransferProhibited"), spaced ("client transfer prohibited"),
+        // and hyphenated ("client-transfer-prohibited") forms from real-world RDAP providers.
+        $normalize = static function (string $s): string {
+            return strtolower(preg_replace('/[\s\-_]+/', '', $s) ?? $s);
+        };
+
+        $lockStatuses = ['clienttransferprohibited', 'servertransferprohibited'];
+        foreach ($statuses as $s) {
+            if (in_array($normalize($s), $lockStatuses, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string,mixed> $payload */

@@ -32,7 +32,7 @@ final class DashboardWidget
 
         wp_add_dashboard_widget(
             'domain_monitor_dashboard_widget',
-            'Domain Monitor',
+            $this->translate('Domain Monitor'),
             [$this, 'render']
         );
     }
@@ -44,17 +44,20 @@ final class DashboardWidget
 
     public function renderHtml(): string
     {
-        $domain = $this->escapeHtml($this->domain);
-        $status = $this->statusLabel();
-        $message = $this->messageHtml();
+        $domain     = $this->escapeHtml($this->domain);
+        $status     = $this->statusLabel();
+        $message    = $this->messageHtml();
         $expiration = $this->expirationHtml();
-        $checkedAt = $this->checkedAtHtml();
-        $form = $this->manualCheckFormHtml();
+        $checkedAt  = $this->checkedAtHtml();
+        $form       = $this->manualCheckFormHtml();
+
+        $monitoredLabel = $this->escapeHtml($this->translate('Monitored domain:'));
+        $statusLabel    = $this->escapeHtml($this->translate('Status:'));
 
         return <<<HTML
 <div class="domain-monitor-widget">
-    <p><strong>Monitored domain:</strong> {$domain}</p>
-    <p><strong>Status: {$status}</strong></p>
+    <p><strong>{$monitoredLabel}</strong> {$domain}</p>
+    <p><strong>{$statusLabel} {$status}</strong></p>
     {$expiration}
     {$message}
     {$checkedAt}
@@ -66,15 +69,17 @@ HTML;
     private function statusLabel(): string
     {
         if ($this->lastResult === null || ($this->lastResult['status'] ?? '') === '') {
-            return 'Not checked yet';
+            return $this->escapeHtml($this->translate('Not checked yet'));
         }
 
+        // Status codes (ok/warn/fail) are machine values; display them uppercased but not translated.
         return strtoupper($this->escapeHtml((string) $this->lastResult['status']));
     }
 
     private function messageHtml(): string
     {
-        $message = $this->lastResult['message'] ?? 'Domain Monitor is active. Run a manual check to capture the first proof-of-concept result.';
+        $message = $this->lastResult['message']
+            ?? $this->translate('Domain Monitor is active. Run a manual check to capture the first proof-of-concept result.');
 
         return '<p>' . $this->escapeHtml((string) $message) . '</p>';
     }
@@ -85,28 +90,32 @@ HTML;
             return '';
         }
 
-        return '<p>Last checked: ' . $this->escapeHtml((string) $this->lastResult['checked_at']) . '</p>';
+        $label = $this->escapeHtml($this->translate('Last checked:'));
+        return '<p>' . $label . ' ' . $this->escapeHtml((string) $this->lastResult['checked_at']) . '</p>';
     }
 
     private function expirationHtml(): string
     {
         $expiresAt = $this->lastResult['expires_at'] ?? '';
+        $label     = $this->escapeHtml($this->translate('Domain expires:'));
 
-        return '<p>Domain expires: ' . $this->escapeHtml(ExpirationDate::label((string) $expiresAt)) . '</p>';
+        return '<p>' . $label . ' ' . $this->escapeHtml(ExpirationDate::label((string) $expiresAt)) . '</p>';
     }
 
     private function manualCheckFormHtml(): string
     {
-        $actionUrl = $this->escapeAttribute($this->actionUrl);
-        $nonce = $this->escapeAttribute($this->nonce);
+        $actionUrl   = $this->escapeAttribute($this->actionUrl);
+        $nonce       = $this->escapeAttribute($this->nonce);
+        $buttonText  = $this->escapeHtml($this->translate('Run manual check'));
+        $description = $this->escapeHtml($this->translate('Checks the configured apex domain now.'));
 
         return <<<HTML
 <form method="post" action="{$actionUrl}">
     <input type="hidden" name="action" value="domain_monitor_manual_check" />
     <input type="hidden" name="_wpnonce" value="{$nonce}" />
     <p>
-        <button type="submit" class="button button-primary">Run manual check</button>
-        <span class="description">Checks the configured apex domain now.</span>
+        <button type="submit" class="button button-primary">{$buttonText}</button>
+        <span class="description">{$description}</span>
     </p>
 </form>
 HTML;
@@ -128,5 +137,20 @@ HTML;
         }
 
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    /**
+     * Translate a string using the plugin text domain.
+     * Falls back to the raw string when the WP i18n functions are not available
+     * (e.g. in unit tests that run outside WordPress).
+     */
+    private function translate(string $text): string
+    {
+        if (function_exists('__')) {
+            // @phan-suppress-next-line PhanUndeclaredFunction
+            return __($text, 'domain-monitor');
+        }
+
+        return $text;
     }
 }

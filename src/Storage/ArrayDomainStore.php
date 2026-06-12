@@ -52,6 +52,23 @@ final class ArrayDomainStore implements DomainStore
         return $this->rows[$id] ?? null;
     }
 
+    /**
+     * Overwrite the stored snapshot for a row directly.
+     * Useful in tests to seed rich snapshot structures without going through
+     * snapshotFromResult (which only captures summary fields). Also sets
+     * last_checked_at to the snapshot's checked_at so statusCode() does not
+     * short-circuit to warn.
+     *
+     * @param array<string,mixed> $snapshot
+     */
+    public function overwriteSnapshot(int $id, array $snapshot): void
+    {
+        if (isset($this->rows[$id])) {
+            $this->rows[$id]['snapshot']        = $snapshot;
+            $this->rows[$id]['last_checked_at'] = (string) ($snapshot['checked_at'] ?? 'now');
+        }
+    }
+
     public function saveCheckResult(int $id, array $result): void
     {
         if (! isset($this->rows[$id])) {
@@ -69,23 +86,73 @@ final class ArrayDomainStore implements DomainStore
     /** @param array<string,string|null> $result @return array<string,mixed> */
     public static function snapshotFromResult(string $domain, array $result): array
     {
-        return [
+        $rdapTransferLocked = isset($result['rdap_transfer_locked'])
+            ? ($result['rdap_transfer_locked'] === '1' || $result['rdap_transfer_locked'] === true)
+            : null;
+
+        $rdapDomainStatuses = [];
+        if (isset($result['rdap_domain_statuses']) && is_string($result['rdap_domain_statuses'])) {
+            $decoded = json_decode($result['rdap_domain_statuses'], true);
+            if (is_array($decoded)) {
+                $rdapDomainStatuses = $decoded;
+            }
+        }
+
+        $snapshot = [
             'schema_version' => 1,
             'checked_at' => (string) ($result['last_checked_at'] ?? ''),
             'domain' => $domain,
             'rdap' => [
-                'status' => (string) ($result['rdap_status'] ?? 'unknown'),
-                'tier' => 0,
-                'registrar' => (string) ($result['rdap_registrar'] ?? ''),
-                'expires_at' => (string) ($result['rdap_expires_at'] ?? ''),
-                'message' => (string) ($result['rdap_message'] ?? ''),
+                'status'          => (string) ($result['rdap_status'] ?? 'unknown'),
+                'tier'            => 0,
+                'registrar'       => (string) ($result['rdap_registrar'] ?? ''),
+                'expires_at'      => (string) ($result['rdap_expires_at'] ?? ''),
+                'message'         => (string) ($result['rdap_message'] ?? ''),
+                'transfer_locked' => $rdapTransferLocked,
+                'domain_statuses' => $rdapDomainStatuses,
             ],
-            'dns' => [
-                'status' => (string) ($result['dns_status'] ?? 'unknown'),
-                'message' => (string) ($result['dns_message'] ?? ''),
-            ],
+            'dns' => self::buildDnsSection($result),
             'errors' => [],
         ];
+
+        if (isset($result['ssl_status'])) {
+            $snapshot['ssl'] = [
+                'status'     => (string) $result['ssl_status'],
+                'expires_at' => isset($result['ssl_expires_at']) ? (string) $result['ssl_expires_at'] : null,
+                'issuer'     => isset($result['ssl_issuer']) ? (string) $result['ssl_issuer'] : null,
+                'message'    => (string) ($result['ssl_message'] ?? ''),
+            ];
+        }
+
+        return $snapshot;
+    }
+
+    /**
+     * Build the dns section of a snapshot from a flat check result.
+     *
+     * If the result includes a 'dns_apex' key (JSON-encoded array of per-record-type
+     * arrays), it is merged into the dns section so that SnapshotDiffer can detect
+     * per-record-type changes. This is populated by checkers that collect per-type
+     * record arrays (e.g. a richer DnsChecker), and also by test helpers.
+     *
+     * @param array<string,string|null> $result
+     * @return array<string,mixed>
+     */
+    private static function buildDnsSection(array $result): array
+    {
+        $section = [
+            'status'  => (string) ($result['dns_status'] ?? 'unknown'),
+            'message' => (string) ($result['dns_message'] ?? ''),
+        ];
+
+        if (isset($result['dns_apex']) && is_string($result['dns_apex'])) {
+            $apex = json_decode($result['dns_apex'], true);
+            if (is_array($apex)) {
+                $section['apex'] = $apex;
+            }
+        }
+
+        return $section;
     }
 
     /** @param array<string,string|null> $result */

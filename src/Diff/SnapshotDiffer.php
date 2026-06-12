@@ -11,7 +11,7 @@ final class SnapshotDiffer
         $diffs = [];
 
         foreach (['apex', 'www'] as $scope) {
-            foreach (['a', 'aaaa', 'cname', 'mx'] as $recordType) {
+            foreach (['a', 'aaaa', 'cname', 'mx', 'ns'] as $recordType) {
                 $old = $this->normaliseRecords($oldSnapshot['dns'][$scope][$recordType] ?? [], $recordType);
                 $new = $this->normaliseRecords($newSnapshot['dns'][$scope][$recordType] ?? [], $recordType);
 
@@ -19,9 +19,9 @@ final class SnapshotDiffer
                     continue;
                 }
 
-                $label = strtoupper($recordType) . ' record';
+                $label   = strtoupper($recordType) . ' record';
                 $removed = array_values(array_diff($old, $new));
-                $added = array_values(array_diff($new, $old));
+                $added   = array_values(array_diff($new, $old));
 
                 if ($old !== [] && $new !== [] && $removed !== [] && $added !== []) {
                     $diffs[] = new SnapshotDiff('dns_change', sprintf(
@@ -29,16 +29,16 @@ final class SnapshotDiffer
                         $label,
                         implode(', ', $old),
                         implode(', ', $new)
-                    ));
+                    ), $recordType);
                     continue;
                 }
 
                 foreach ($added as $value) {
-                    $diffs[] = new SnapshotDiff('dns_change', sprintf('%s added: %s.', $label, $value));
+                    $diffs[] = new SnapshotDiff('dns_change', sprintf('%s added: %s.', $label, $value), $recordType);
                 }
 
                 foreach ($removed as $value) {
-                    $diffs[] = new SnapshotDiff('dns_change', sprintf('%s removed: %s.', $label, $value));
+                    $diffs[] = new SnapshotDiff('dns_change', sprintf('%s removed: %s.', $label, $value), $recordType);
                 }
             }
         }

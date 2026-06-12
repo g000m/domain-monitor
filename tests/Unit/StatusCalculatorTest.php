@@ -5,6 +5,7 @@ namespace DomainMonitor\Tests\Unit;
 
 use DateTimeImmutable;
 use DomainMonitor\Domain\StatusCalculator;
+use DomainMonitor\Storage\ArrayAlertStore;
 use PHPUnit\Framework\TestCase;
 
 final class StatusCalculatorTest extends TestCase
@@ -131,5 +132,33 @@ final class StatusCalculatorTest extends TestCase
 
         self::assertSame(StatusCalculator::STATUS_WARN, $status->code());
         self::assertStringContainsString('expires within 30 days', $status->message());
+    }
+
+    /**
+     * Verify that an alert produced by ArrayAlertStore (with no 'is_active' or
+     * 'severity' columns) is handled correctly when normalized: open rows
+     * (resolved_at === null) must make the calculator return warn.
+     */
+    public function test_open_alert_from_array_store_normalized_to_warn(): void
+    {
+        $alertStore = new ArrayAlertStore();
+        $alertStore->createAlert(1, 'ns_changed', 'Nameservers changed.');
+
+        $raw = $alertStore->openAlertsForDomain(1);
+
+        // Normalize exactly as Plugin::alertsForRecord does.
+        $normalized = array_map(static function (array $row): array {
+            $row['is_active'] = ($row['resolved_at'] ?? null) === null;
+            $row['severity']  = $row['severity'] ?? StatusCalculator::STATUS_WARN;
+            return $row;
+        }, $raw);
+
+        $status = (new StatusCalculator())->calculate([
+            'rdap' => ['status' => 'ok', 'expires_at' => '2030-01-01T00:00:00Z'],
+            'dns'  => ['status' => 'ok'],
+        ], $normalized, new DateTimeImmutable('2026-06-11T00:00:00Z'));
+
+        self::assertSame(StatusCalculator::STATUS_WARN, $status->code());
+        self::assertStringContainsString('Active domain alert', $status->message());
     }
 }

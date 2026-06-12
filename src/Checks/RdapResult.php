@@ -9,13 +9,29 @@ final class RdapResult
     private ?string $expiresAt;
     private ?string $registrar;
     private string $message;
+    /** @var bool|null */
+    private $transferLocked;
+    /** @var list<string> */
+    private array $domainStatuses;
 
-    public function __construct(string $status, ?string $expiresAt = null, ?string $registrar = null, string $message = '')
-    {
-        $this->status = $status;
-        $this->expiresAt = $expiresAt;
-        $this->registrar = $registrar;
-        $this->message = $message;
+    /**
+     * @param bool|null $transferLocked
+     * @param list<string> $domainStatuses
+     */
+    public function __construct(
+        string $status,
+        ?string $expiresAt = null,
+        ?string $registrar = null,
+        string $message = '',
+        $transferLocked = null,
+        array $domainStatuses = []
+    ) {
+        $this->status         = $status;
+        $this->expiresAt      = $expiresAt;
+        $this->registrar      = $registrar;
+        $this->message        = $message;
+        $this->transferLocked = $transferLocked;
+        $this->domainStatuses = $domainStatuses;
     }
 
     public function status(): string
@@ -36,5 +52,17 @@ final class RdapResult
     public function message(): string
     {
         return $this->message;
+    }
+
+    /** @return bool|null */
+    public function transferLocked()
+    {
+        return $this->transferLocked;
+    }
+
+    /** @return list<string> */
+    public function domainStatuses(): array
+    {
+        return $this->domainStatuses;
     }
 }

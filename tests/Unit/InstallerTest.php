@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace DomainMonitor\Tests\Unit;
 
+use DomainMonitor\Storage\DomainTable;
 use DomainMonitor\Storage\Installer;
 use PHPUnit\Framework\TestCase;
 
@@ -25,9 +26,46 @@ final class InstallerTest extends TestCase
 
         $installer->install();
 
-        self::assertCount(1, $dbDeltaCalls);
+        self::assertCount(2, $dbDeltaCalls);
         self::assertStringContainsString('CREATE TABLE wp_domainmon_domains', $dbDeltaCalls[0]);
-        self::assertSame('2', $options['domain_monitor_schema_version']);
+        self::assertStringContainsString('CREATE TABLE wp_domainmon_alerts', $dbDeltaCalls[1]);
+        self::assertSame(DomainTable::SCHEMA_VERSION, $options['domain_monitor_schema_version']);
+    }
+
+    public function test_maybe_upgrade_skips_when_version_is_current(): void
+    {
+        $db = new FakeWpdbForInstaller();
+        $dbDeltaCalls = [];
+        $installer = new Installer(
+            $db,
+            static function (string $sql) use (&$dbDeltaCalls): void {
+                $dbDeltaCalls[] = $sql;
+            },
+            static function (string $name, string $value): void {},
+            static function (string $name) { return DomainTable::SCHEMA_VERSION; }
+        );
+
+        $installer->maybeUpgrade();
+
+        self::assertCount(0, $dbDeltaCalls);
+    }
+
+    public function test_maybe_upgrade_runs_install_when_version_is_old(): void
+    {
+        $db = new FakeWpdbForInstaller();
+        $dbDeltaCalls = [];
+        $installer = new Installer(
+            $db,
+            static function (string $sql) use (&$dbDeltaCalls): void {
+                $dbDeltaCalls[] = $sql;
+            },
+            static function (string $name, string $value): void {},
+            static function (string $name) { return '1'; }
+        );
+
+        $installer->maybeUpgrade();
+
+        self::assertCount(2, $dbDeltaCalls);
     }
 }
 

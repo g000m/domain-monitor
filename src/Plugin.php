@@ -12,15 +12,21 @@ use DomainMonitor\Checks\CheckRunner;
 use DomainMonitor\Checks\DomainCheckRunner;
 use DomainMonitor\Checks\NativeDnsResolver;
 use DomainMonitor\Checks\RdapChecker;
+use DomainMonitor\Checks\SslChecker;
+use DomainMonitor\Checks\StreamCertificateFetcher;
 use DomainMonitor\Checks\WordPressHttpClient;
+use DomainMonitor\Diff\SnapshotDiffer;
 use DomainMonitor\Domain\ApexDomain;
 use DomainMonitor\Domain\StatusCalculator;
 use DomainMonitor\Notifications\AdminNotifier;
 use DomainMonitor\Notifications\DomainNotifier;
+use DomainMonitor\Storage\AlertStore;
+use DomainMonitor\Storage\ArrayAlertStore;
 use DomainMonitor\Storage\ArrayDomainStore;
 use DomainMonitor\Storage\DomainRecord;
 use DomainMonitor\Storage\DomainRepository;
 use DomainMonitor\Storage\DomainTable;
+use DomainMonitor\Storage\WpdbAlertStore;
 use DomainMonitor\Storage\WpdbDomainStore;
 use InvalidArgumentException;
 
@@ -37,6 +43,8 @@ final class Plugin
     private $injectedCheckRunner = null;
     /** @var DomainNotifier|null */
     private $injectedNotifier = null;
+    /** @var AlertStore|null */
+    private $injectedAlertStore = null;
 
     /**
      * Optional constructor injection for testability.
@@ -45,11 +53,13 @@ final class Plugin
     public function __construct(
         ?DomainRepository $repository = null,
         ?CheckRunner $checkRunner = null,
-        ?DomainNotifier $notifier = null
+        ?DomainNotifier $notifier = null,
+        ?AlertStore $alertStore = null
     ) {
         $this->injectedRepository  = $repository;
         $this->injectedCheckRunner = $checkRunner;
         $this->injectedNotifier    = $notifier;
+        $this->injectedAlertStore  = $alertStore;
     }
 
     public function register(): void
@@ -141,7 +151,7 @@ final class Plugin
     {
         $records = $this->repository()->all();
         foreach ($records as $record) {
-            $code = $record->statusCode();
+            $code = $record->statusCode($this->alertsForRecord($record));
             if ($code === StatusCalculator::STATUS_WARN || $code === StatusCalculator::STATUS_FAIL) {
                 $settingsUrl = function_exists('admin_url')
                     ? esc_url(admin_url('options-general.php?page=domain-monitor'))
@@ -179,7 +189,11 @@ final class Plugin
      */
     private function checkAndRecord(DomainRecord $record, DomainRepository $repository): void
     {
-        $previousStatus = $record->statusCode();
+        $previousStatus   = $record->statusCode($this->alertsForRecord($record));
+        $previousSnapshot = $record->snapshot();
+
+        // Capture transfer lock state before the check for change detection.
+        $previousTransferLocked = $record->rdapTransferLocked();
 
         try {
             $result = $this->checkRunner()->check($record->domain());
@@ -198,15 +212,68 @@ final class Plugin
         $repository->saveCheckResult($record->id(), $result);
 
         $fresh = $repository->find($record->id());
-        if ($fresh instanceof DomainRecord) {
-            $newStatus = $fresh->statusCode();
-            if ($this->isWorseStatus($previousStatus, $newStatus)) {
-                $this->notifier()->notifyStatusChange($fresh, $previousStatus, $newStatus);
-            }
+        if (! $fresh instanceof DomainRecord) {
+            return;
+        }
 
-            if (function_exists('do_action')) {
-                do_action('domain_monitor_check_complete', $fresh, $result);
+        // Diff snapshots and create alerts.
+        $this->processAlerts($record->id(), $previousSnapshot, $fresh->snapshot(), $previousTransferLocked, $fresh);
+
+        $newStatus = $fresh->statusCode($this->alertsForRecord($fresh));
+        if ($this->isWorseStatus($previousStatus, $newStatus)) {
+            $this->notifier()->notifyStatusChange($fresh, $previousStatus, $newStatus);
+        }
+
+        if (function_exists('do_action')) {
+            do_action('domain_monitor_check_complete', $fresh, $result);
+        }
+    }
+
+    /**
+     * Diff the previous and new snapshots, create alert rows, and send
+     * notifications for NS changes and transfer lock removal.
+     *
+     * @param array<string,mixed> $oldSnapshot
+     * @param array<string,mixed> $newSnapshot
+     * @param bool|null $previousTransferLocked
+     */
+    private function processAlerts(
+        int $domainId,
+        array $oldSnapshot,
+        array $newSnapshot,
+        $previousTransferLocked,
+        DomainRecord $fresh
+    ): void {
+        // DNS snapshot diff.
+        // Skip if there is no previous snapshot at all, or if the previous snapshot
+        // pre-dates the dns.apex structure (e.g. recorded by older plugin code). In
+        // that case the first rich snapshot becomes the new reference baseline and no
+        // spurious "added" alerts are emitted.
+        $oldApex = $oldSnapshot['dns']['apex'] ?? null;
+        $hasRichOldSnapshot = $oldSnapshot !== [] && is_array($oldApex) && $oldApex !== [];
+        if ($hasRichOldSnapshot) {
+            $diffs = (new SnapshotDiffer())->diff($oldSnapshot, $newSnapshot);
+            foreach ($diffs as $diff) {
+                $recordType = $diff->recordType();
+
+                if ($recordType === 'ns') {
+                    $this->alertStore()->createAlert($domainId, 'ns_changed', $diff->message());
+                    // NS change is the hijack signal: always notify.
+                    $this->notifier()->notifyStatusChange($fresh, 'ok', StatusCalculator::STATUS_WARN);
+                } elseif ($recordType === 'a') {
+                    $this->alertStore()->createAlert($domainId, 'a_changed', $diff->message());
+                } elseif ($recordType === 'mx') {
+                    $this->alertStore()->createAlert($domainId, 'mx_changed', $diff->message());
+                }
+                // Other record types (aaaa, cname) get no dedicated alert in v1.
             }
+        }
+
+        // Transfer lock removal.
+        $newTransferLocked = $fresh->rdapTransferLocked();
+        if ($previousTransferLocked === true && $newTransferLocked === false) {
+            $this->alertStore()->createAlert($domainId, 'transfer_lock_removed', 'Domain transfer lock was removed.');
+            $this->notifier()->notifyStatusChange($fresh, 'ok', StatusCalculator::STATUS_WARN);
         }
     }
 
@@ -218,7 +285,10 @@ final class Plugin
 
         if (function_exists('current_user_can') && ! current_user_can('manage_options')) {
             if (function_exists('wp_die')) {
-                wp_die('Sorry, you are not allowed to manage Domain Monitor.');
+                $message = function_exists('__')
+                    ? __('Sorry, you are not allowed to manage Domain Monitor.', 'domain-monitor')
+                    : 'Sorry, you are not allowed to manage Domain Monitor.';
+                wp_die($message);
             }
 
             // In test context wp_die may not be defined; throw so callers cannot proceed.
@@ -250,7 +320,8 @@ final class Plugin
 
         return new DomainCheckRunner(
             new DnsChecker(new NativeDnsResolver()),
-            new RdapChecker(new WordPressHttpClient())
+            new RdapChecker(new WordPressHttpClient()),
+            new SslChecker(new StreamCertificateFetcher())
         );
     }
 
@@ -261,6 +332,37 @@ final class Plugin
         }
 
         return new AdminNotifier();
+    }
+
+    /**
+     * Fetch open alerts for a domain record and normalize them to the shape
+     * StatusCalculator expects: each row gains `is_active => true` (all rows
+     * returned by openAlertsForDomain are unresolved) and `severity => 'warn'`
+     * when no severity column is stored.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function alertsForRecord(DomainRecord $record): array
+    {
+        $raw = $this->alertStore()->openAlertsForDomain($record->id());
+        $normalized = [];
+        foreach ($raw as $row) {
+            $row['is_active'] = ($row['resolved_at'] ?? null) === null;
+            $row['severity']  = $row['severity'] ?? StatusCalculator::STATUS_WARN;
+            $normalized[]     = $row;
+        }
+        return $normalized;
+    }
+
+    private function alertStore(): AlertStore
+    {
+        if ($this->injectedAlertStore !== null) {
+            return $this->injectedAlertStore;
+        }
+
+        global $wpdb;
+
+        return new WpdbAlertStore($wpdb);
     }
 
     private function currentDomain(): string
@@ -300,7 +402,7 @@ final class Plugin
         $calculator = new StatusCalculator();
         $domainStatus = $calculator->calculate(
             $record->snapshot(),
-            [],
+            $this->alertsForRecord($record),
             new DateTimeImmutable()
         );
 

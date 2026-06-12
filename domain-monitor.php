@@ -8,6 +8,7 @@
  * Author: Domain Monitor Contributors
  * License: GPL-2.0-or-later
  * Text Domain: domain-monitor
+ * Domain Path: /languages
  */
 
 declare(strict_types=1);
@@ -32,8 +33,33 @@ register_activation_hook(__FILE__, static function (): void {
     }
 
     // Schedule the daily domain check if not already scheduled.
-    if (! wp_next_scheduled('domain_monitor_daily_check')) {
+    if (function_exists('wp_next_scheduled') && ! wp_next_scheduled('domain_monitor_daily_check')) {
         wp_schedule_event(time(), 'daily', 'domain_monitor_daily_check');
+    }
+
+    // Auto-detect the current site's domain so the first check can run without
+    // requiring a manual visit to wp-admin.
+    if (
+        class_exists(\DomainMonitor\Admin\DomainAdminActions::class) &&
+        class_exists(\DomainMonitor\Storage\DomainRepository::class) &&
+        class_exists(\DomainMonitor\Storage\WpdbDomainStore::class) &&
+        class_exists(\DomainMonitor\Storage\DomainTable::class) &&
+        function_exists('home_url')
+    ) {
+        $domain_monitor_store = new \DomainMonitor\Storage\WpdbDomainStore(
+            $wpdb,
+            \DomainMonitor\Storage\DomainTable::tableName((string) $wpdb->prefix)
+        );
+        $domain_monitor_repo  = new \DomainMonitor\Storage\DomainRepository($domain_monitor_store);
+        $domain_monitor_host  = (string) parse_url((string) home_url('/'), PHP_URL_HOST);
+        if ($domain_monitor_host !== '') {
+            $domain_monitor_actions = new \DomainMonitor\Admin\DomainAdminActions(
+                $domain_monitor_repo,
+                null,
+                $domain_monitor_host
+            );
+            $domain_monitor_actions->ensureAutoDetectedDomain();
+        }
     }
 });
 
@@ -44,5 +70,11 @@ register_deactivation_hook(__FILE__, static function (): void {
 add_action('plugins_loaded', static function (): void {
     if (class_exists(\DomainMonitor\Plugin::class)) {
         (new \DomainMonitor\Plugin())->register();
+    }
+
+    // Upgrade schema if needed (e.g. plugin updated without reactivation).
+    if (class_exists(\DomainMonitor\Storage\Installer::class)) {
+        global $wpdb;
+        (new \DomainMonitor\Storage\Installer($wpdb))->maybeUpgrade();
     }
 });
