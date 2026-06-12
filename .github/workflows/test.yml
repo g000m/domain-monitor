@@ -27,3 +27,49 @@ jobs:
 
       - name: Run test suite
         run: vendor/bin/phpunit
+
+  smoke:
+    name: wp-env smoke (WP ${{ matrix.wp }}, PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wp: '6.6'
+            php: '7.4'
+          - wp: 'latest'
+            php: '8.3'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP (for composer autoloader)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Install composer autoloader
+        run: composer install --no-dev --prefer-dist --no-progress --no-interaction
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Configure wp-env for matrix
+        run: |
+          if [ "${{ matrix.wp }}" = "latest" ]; then
+            core='null'
+          else
+            core='"WordPress/WordPress#${{ matrix.wp }}"'
+          fi
+          jq ".core = $core | .phpVersion = \"${{ matrix.php }}\"" .wp-env.json > .wp-env.override.json
+          cat .wp-env.override.json
+
+      - name: Start wp-env
+        run: npx wp-env start
+
+      - name: Run smoke test
+        run: bash bin/smoke-test.sh
