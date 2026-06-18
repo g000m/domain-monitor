@@ -5,7 +5,7 @@
  * Version: 0.1.0
  * Requires PHP: 7.4
  * Requires at least: 6.6
- * Author: Domain Monitor Contributors
+ * Author: Gabe Herbert
  * License: GPL-2.0-or-later
  * Text Domain: domain-monitor
  * Domain Path: /languages

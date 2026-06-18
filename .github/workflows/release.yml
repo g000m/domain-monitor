@@ -22,6 +22,24 @@ jobs:
           coverage: none
           tools: composer
 
+      - name: Pre-flight - validate composer manifest and build invocations
+        run: |
+          set -euo pipefail
+          # 1. Manifest sanity (no publish checks; this plugin isn't on Packagist).
+          composer validate --strict --no-check-publish
+          # 2. Shell parse check on the build script.
+          bash -n bin/build.sh
+          # 3. Dry-run the exact composer commands the build uses, in a throwaway
+          #    copy, so an invalid flag/constraint fails here instead of mid-build.
+          #    Keep these flags in sync with bin/build.sh.
+          tmp="$(mktemp -d)"
+          cp composer.json composer.lock "${tmp}/"
+          composer install --working-dir="${tmp}" --no-dev --classmap-authoritative \
+            --optimize-autoloader --dry-run --no-interaction --no-progress
+          composer require yahnis-elsts/plugin-update-checker:^5.6 \
+            --working-dir="${tmp}" --update-no-dev --classmap-authoritative \
+            --optimize-autoloader --dry-run --no-interaction --no-progress
+
       - name: Build plugin zip (GitHub dogfood channel, with self-updater)
         run: bash bin/build.sh --with-updater
 

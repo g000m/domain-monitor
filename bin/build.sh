@@ -116,6 +116,7 @@ DEV_PATHS=(
   ".gitignore"
   ".gitattributes"
   ".editorconfig"
+  "AGENTS.md"
 )
 for p in "${DEV_PATHS[@]}"; do
   rm -rf "${STAGING_DIR:?}/${p}"
