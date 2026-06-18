@@ -89,7 +89,7 @@ if [[ "${WITH_UPDATER}" -eq 1 ]]; then
   echo "==> Bundling self-updater (${UPDATER_PACKAGE})"
   composer require "${UPDATER_PACKAGE}" \
     --working-dir="${STAGING_DIR}" \
-    --no-dev \
+    --update-no-dev \
     --classmap-authoritative \
     --optimize-autoloader \
     --no-interaction \
