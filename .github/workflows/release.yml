@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and publish plugin zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer
+
+      - name: Build plugin zip
+        run: bash bin/build.sh
+
+      - name: Verify git tag matches plugin version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          file="$(ls build/domain-monitor-*.zip)"
+          version="$(basename "${file}" .zip | sed 's/^domain-monitor-//')"
+          if [ "${tag}" != "${version}" ]; then
+            echo "error: git tag '${tag}' != plugin version '${version}'" >&2
+            exit 1
+          fi
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/domain-monitor-*.zip
+          generate_release_notes: true

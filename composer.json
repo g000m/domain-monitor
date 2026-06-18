@@ -22,7 +22,8 @@
   },
   "scripts": {
     "test": "phpunit --configuration phpunit.xml.dist",
-    "test:unit": "phpunit --configuration phpunit.xml.dist --testsuite unit"
+    "test:unit": "phpunit --configuration phpunit.xml.dist --testsuite unit",
+    "build": "bin/build.sh"
   },
   "config": {
     "allow-plugins": true,
