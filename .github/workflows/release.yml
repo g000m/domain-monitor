@@ -22,8 +22,8 @@ jobs:
           coverage: none
           tools: composer
 
-      - name: Build plugin zip
-        run: bash bin/build.sh
+      - name: Build plugin zip (GitHub dogfood channel, with self-updater)
+        run: bash bin/build.sh --with-updater
 
       - name: Verify git tag matches plugin version
         run: |

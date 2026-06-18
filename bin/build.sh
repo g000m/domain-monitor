@@ -7,12 +7,15 @@
 # with a single top-level domain-monitor/ directory, as WordPress requires.
 #
 # Usage:
-#   bin/build.sh                # build into ./build, remove staging afterward
-#   bin/build.sh --keep-staging # leave the unzipped staging dir for inspection
+#   bin/build.sh                  # WordPress.org-clean build (no self-updater)
+#   bin/build.sh --with-updater   # GitHub "dogfood" build (bundles plugin-update-checker)
+#   bin/build.sh --keep-staging   # leave the unzipped staging dir for inspection
+# Flags may be combined. Set ALLOW_DIRTY=1 to build from a dirty tree.
 #
 set -euo pipefail
 
 SLUG="domain-monitor"
+UPDATER_PACKAGE="yahnis-elsts/plugin-update-checker:^5.6"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -22,7 +25,14 @@ BUILD_DIR="${ROOT_DIR}/build"
 STAGING_DIR="${BUILD_DIR}/${SLUG}"
 
 KEEP_STAGING=0
-[[ "${1:-}" == "--keep-staging" ]] && KEEP_STAGING=1
+WITH_UPDATER=0
+for arg in "$@"; do
+  case "${arg}" in
+    --keep-staging) KEEP_STAGING=1 ;;
+    --with-updater) WITH_UPDATER=1 ;;
+    *) echo "error: unknown argument '${arg}'" >&2; exit 1 ;;
+  esac
+done
 
 # --- required tools ---
 for tool in git composer zip php tar; do
@@ -49,7 +59,11 @@ if [[ "${HEADER_VERSION}" != "${CONST_VERSION}" ]]; then
   exit 1
 fi
 VERSION="${HEADER_VERSION}"
-echo "==> Building ${SLUG} ${VERSION}"
+if [[ "${WITH_UPDATER}" -eq 1 ]]; then
+  echo "==> Building ${SLUG} ${VERSION} (GitHub dogfood channel, with self-updater)"
+else
+  echo "==> Building ${SLUG} ${VERSION} (WordPress.org-clean channel)"
+fi
 
 # --- clean staging ---
 rm -rf "${BUILD_DIR}"
@@ -69,6 +83,19 @@ composer install \
   --no-interaction \
   --no-progress \
   --quiet
+
+# --- optional: bundle the GitHub self-updater (dogfood channel only) ---
+if [[ "${WITH_UPDATER}" -eq 1 ]]; then
+  echo "==> Bundling self-updater (${UPDATER_PACKAGE})"
+  composer require "${UPDATER_PACKAGE}" \
+    --working-dir="${STAGING_DIR}" \
+    --no-dev \
+    --classmap-authoritative \
+    --optimize-autoloader \
+    --no-interaction \
+    --no-progress \
+    --quiet
+fi
 
 # --- prune dev-only files ---
 echo "==> Pruning dev tooling"
@@ -107,6 +134,12 @@ fi
 for forbidden in tests docs design bin phpunit.xml.dist package.json composer.json; do
   [[ -e "${STAGING_DIR}/${forbidden}" ]] && { echo "error: dev path '${forbidden}' leaked into package" >&2; exit 1; }
 done
+# Self-updater must match the requested channel.
+if [[ "${WITH_UPDATER}" -eq 1 ]]; then
+  [[ -d "${STAGING_DIR}/vendor/yahnis-elsts/plugin-update-checker" ]] || { echo "error: --with-updater requested but plugin-update-checker not bundled" >&2; exit 1; }
+else
+  [[ -e "${STAGING_DIR}/vendor/yahnis-elsts" ]] && { echo "error: self-updater leaked into WordPress.org-clean build" >&2; exit 1; }
+fi
 
 echo "==> php -l sweep"
 lint_failed=0

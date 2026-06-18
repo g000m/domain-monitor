@@ -77,6 +77,24 @@ add_action('plugins_loaded', static function (): void {
         global $wpdb;
         (new \DomainMonitor\Storage\Installer($wpdb))->maybeUpgrade();
     }
+
+    // Self-update from GitHub releases. This only activates when the
+    // plugin-update-checker library is bundled, i.e. the GitHub "dogfood" build
+    // produced by `bin/build.sh --with-updater`. It is intentionally absent from
+    // the default/WordPress.org build, where updates are served by the repository.
+    $domain_monitor_puc = '\\YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory';
+    if (class_exists($domain_monitor_puc)) {
+        $domain_monitor_update_checker = $domain_monitor_puc::buildUpdateChecker(
+            'https://github.com/g000m/domain-monitor/',
+            DOMAIN_MONITOR_PLUGIN_FILE,
+            'domain-monitor'
+        );
+        // Use the packaged release asset (built with a production autoloader),
+        // not GitHub's source zipball, which would lack vendor/.
+        $domain_monitor_update_checker->getVcsApi()->enableReleaseAssets(
+            '/domain-monitor-[0-9.]+\\.zip($|[?&#])/i'
+        );
+    }
 });
 
 if (defined('WP_CLI') && WP_CLI && class_exists(\DomainMonitor\Cli\DomainMonitorCommand::class)) {
