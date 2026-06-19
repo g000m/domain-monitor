@@ -56,16 +56,21 @@ final class SslCheckerTest extends TestCase
         self::assertSame(gmdate('Y-m-d\TH:i:s\Z', $validTo), $result->expiresAt());
     }
 
-    public function test_unreachable_host_returns_degraded(): void
+    public function test_unreachable_host_is_inconclusive_and_does_not_blame_the_site(): void
     {
         $fetcher = new FakeCertificateFetcher(null);
 
         $result = (new SslChecker($fetcher))->check('unreachable.example');
 
-        self::assertSame('degraded', $result->status());
+        // A failed connection is inconclusive ('unknown'), not a fault.
+        self::assertSame('unknown', $result->status());
         self::assertNull($result->expiresAt());
         self::assertNull($result->issuer());
         self::assertStringContainsString('unreachable.example', $result->message());
+
+        // The copy must own the monitor's limitation, never accuse the site.
+        self::assertStringNotContainsStringIgnoringCase('may not serve HTTPS', $result->message());
+        self::assertStringContainsString('monitor', $result->message());
     }
 
     public function test_issuer_falls_back_to_organisation_when_cn_missing(): void

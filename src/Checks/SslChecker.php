@@ -18,11 +18,19 @@ final class SslChecker
         $parsed = $this->fetcher->fetch($domain);
 
         if ($parsed === null) {
+            // Inconclusive, not a fault: the monitor failed to complete its own
+            // check. A connect failure from here (egress limits, IPv6, timeout, or
+            // a self-connection block when the monitor runs on the same host) is
+            // not evidence the site is broken, so we report 'unknown' and keep the
+            // copy about the monitor, never the site. 'unknown' does not drive the
+            // dashboard status; see StatusCalculator.
             return new SslResult(
-                'degraded',
+                'unknown',
                 null,
                 null,
-                'Could not connect to ' . $domain . ' on port 443. The site may not serve HTTPS.'
+                'Could not verify the TLS certificate for ' . $domain . '. '
+                . 'The monitor could not reach port 443. This is often a temporary '
+                . 'network issue on the monitoring side and will retry on the next check.'
             );
         }
 

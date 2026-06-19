@@ -14,8 +14,6 @@ final class StatusCalculator
     private const RECENT_RECOVERY_DAYS  = 3;
     private const EXPIRY_RED_DAYS       = 7;
     private const EXPIRY_AMBER_DAYS     = 30;
-    private const SSL_EXPIRY_RED_DAYS   = 3;
-    private const SSL_EXPIRY_AMBER_DAYS = 14;
 
     /**
      * @param array<string,mixed> $snapshot
@@ -49,26 +47,18 @@ final class StatusCalculator
             }
         }
 
-        $sslExpiresAt = $snapshot['ssl']['expires_at'] ?? null;
-        if (is_string($sslExpiresAt) && $sslExpiresAt !== '') {
-            $sslExpiry = new DateTimeImmutable($sslExpiresAt);
-            if ($sslExpiry < $now) {
-                return new DomainStatus(self::STATUS_FAIL, 'SSL certificate has expired.');
-            }
+        // SSL is intentionally NOT a headline driver. TLS detail (validity,
+        // expiry, issuer, and any inconclusive "could not verify" result) is
+        // recorded on the snapshot and shown in the settings page, but it never
+        // raises the dashboard status or the admin banner on its own. Rationale:
+        //   - A connect failure from the monitor is inconclusive, not a fault, and
+        //     proactively warning a healthy site is how a monitor loses trust.
+        //   - Even a genuine cert problem is visible the moment an admin opens the
+        //     plugin; it does not warrant an unsolicited site-wide warning here.
+        // See SslChecker, which reports 'unknown' rather than 'degraded' for a
+        // failed connection. ('ssl' is deliberately absent from the loop below.)
 
-            $sslRedThreshold   = $now->modify('+' . self::SSL_EXPIRY_RED_DAYS . ' days');
-            $sslAmberThreshold = $now->modify('+' . self::SSL_EXPIRY_AMBER_DAYS . ' days');
-
-            if ($sslExpiry <= $sslRedThreshold) {
-                return new DomainStatus(self::STATUS_FAIL, 'SSL certificate expires within ' . self::SSL_EXPIRY_RED_DAYS . ' days.');
-            }
-
-            if ($sslExpiry <= $sslAmberThreshold) {
-                return new DomainStatus(self::STATUS_WARN, 'SSL certificate expires within ' . self::SSL_EXPIRY_AMBER_DAYS . ' days.');
-            }
-        }
-
-        foreach (['rdap', 'dns', 'ssl', 'http'] as $check) {
+        foreach (['rdap', 'dns', 'http'] as $check) {
             $checkStatus = $snapshot[$check]['status'] ?? null;
             if ($checkStatus === 'fail') {
                 return new DomainStatus(self::STATUS_FAIL, ucfirst($check) . ' check failed.');

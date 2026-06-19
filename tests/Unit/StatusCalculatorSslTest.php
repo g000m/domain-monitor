@@ -7,8 +7,14 @@ use DateTimeImmutable;
 use DomainMonitor\Domain\StatusCalculator;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * SSL is intentionally NOT a headline driver. These tests lock in that contract:
+ * no SSL condition (valid, expiring, expired, or an inconclusive connect failure)
+ * may raise the dashboard status on its own. TLS detail lives in the settings page.
+ */
 final class StatusCalculatorSslTest extends TestCase
 {
+    /** @param array<string,mixed> $ssl */
     private function baseSnapshot(array $ssl = []): array
     {
         return [
@@ -30,7 +36,7 @@ final class StatusCalculatorSslTest extends TestCase
         self::assertSame(StatusCalculator::STATUS_OK, $status->code());
     }
 
-    public function test_ssl_cert_expired_is_red(): void
+    public function test_expired_ssl_cert_does_not_raise_status(): void
     {
         $snapshot = $this->baseSnapshot([
             'status'     => 'ok',
@@ -39,13 +45,14 @@ final class StatusCalculatorSslTest extends TestCase
 
         $status = (new StatusCalculator())->calculate($snapshot, [], new DateTimeImmutable('2026-06-01T00:00:00Z'));
 
-        self::assertSame(StatusCalculator::STATUS_FAIL, $status->code());
-        self::assertStringContainsString('SSL certificate has expired', $status->message());
+        // Even a genuinely expired cert is not surfaced as a headline alarm; the
+        // admin sees TLS detail in settings. This is a deliberate product call.
+        self::assertSame(StatusCalculator::STATUS_OK, $status->code());
     }
 
-    public function test_ssl_cert_expiring_within_3_days_is_red(): void
+    public function test_ssl_cert_expiring_soon_does_not_raise_status(): void
     {
-        // Expiry 2 days away - inside the 3-day red threshold.
+        // Two days from now - previously an SSL "red". No longer a headline driver.
         $snapshot = $this->baseSnapshot([
             'status'     => 'ok',
             'expires_at' => '2026-06-03T00:00:00Z',
@@ -53,30 +60,16 @@ final class StatusCalculatorSslTest extends TestCase
 
         $status = (new StatusCalculator())->calculate($snapshot, [], new DateTimeImmutable('2026-06-01T00:00:00Z'));
 
-        self::assertSame(StatusCalculator::STATUS_FAIL, $status->code());
-        self::assertStringContainsString('3 days', $status->message());
+        self::assertSame(StatusCalculator::STATUS_OK, $status->code());
     }
 
-    public function test_ssl_cert_expiring_within_14_days_is_amber(): void
+    public function test_inconclusive_ssl_check_does_not_raise_status(): void
     {
-        // Expiry 10 days away - between 3-day red and 14-day amber threshold.
+        // SslChecker reports 'unknown' when it cannot complete the check. That must
+        // never alarm: a flaky monitor cannot make a healthy site look broken.
         $snapshot = $this->baseSnapshot([
-            'status'     => 'ok',
-            'expires_at' => '2026-06-11T00:00:00Z',
-        ]);
-
-        $status = (new StatusCalculator())->calculate($snapshot, [], new DateTimeImmutable('2026-06-01T00:00:00Z'));
-
-        self::assertSame(StatusCalculator::STATUS_WARN, $status->code());
-        self::assertStringContainsString('14 days', $status->message());
-    }
-
-    public function test_ssl_cert_beyond_14_days_is_green(): void
-    {
-        // Expiry 30 days away - outside the amber threshold.
-        $snapshot = $this->baseSnapshot([
-            'status'     => 'ok',
-            'expires_at' => '2026-07-01T00:00:00Z',
+            'status'  => 'unknown',
+            'message' => 'Could not verify the TLS certificate. The monitor could not reach port 443.',
         ]);
 
         $status = (new StatusCalculator())->calculate($snapshot, [], new DateTimeImmutable('2026-06-01T00:00:00Z'));
@@ -84,8 +77,10 @@ final class StatusCalculatorSslTest extends TestCase
         self::assertSame(StatusCalculator::STATUS_OK, $status->code());
     }
 
-    public function test_ssl_degraded_status_returns_warn(): void
+    public function test_legacy_degraded_ssl_status_does_not_raise_status(): void
     {
+        // Guard against regressions for any snapshot still carrying the old
+        // 'degraded' SSL status: SSL is out of the headline loop entirely.
         $snapshot = $this->baseSnapshot([
             'status'  => 'degraded',
             'message' => 'Could not connect to example.com on port 443.',
@@ -93,8 +88,7 @@ final class StatusCalculatorSslTest extends TestCase
 
         $status = (new StatusCalculator())->calculate($snapshot, [], new DateTimeImmutable('2026-06-01T00:00:00Z'));
 
-        self::assertSame(StatusCalculator::STATUS_WARN, $status->code());
-        self::assertStringContainsString('connect to example.com', $status->message());
+        self::assertSame(StatusCalculator::STATUS_OK, $status->code());
     }
 
     public function test_no_ssl_section_in_snapshot_does_not_affect_status(): void
