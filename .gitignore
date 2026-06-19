@@ -6,3 +6,4 @@
 .DS_Store
 .*.swp
 .wp-env.override.json
+/debug.log

@@ -41,6 +41,7 @@ final class Plugin
     private const NONCE_ACTION_RESOLVE_ALERT   = 'domain_monitor_resolve_alert_form';
     private const ADD_DOMAIN_ACTION            = 'domain_monitor_add_domain';
     private const CRON_HOOK                    = 'domain_monitor_daily_check';
+    private const CRON_HOOK_INITIAL_CHECK      = 'domain_monitor_initial_check';
 
     /** @var DomainRepository|null */
     private $injectedRepository = null;
@@ -77,6 +78,12 @@ final class Plugin
         // on front-end requests where WP-Cron runs.
         add_action(self::CRON_HOOK, [$this, 'handleDailyCheck']);
 
+        // One-off "first check" event for a freshly-seeded domain. Reuses the
+        // daily handler (checks every record). Registered here, outside the
+        // is_admin() gate, so the WP-Cron request (which is not an admin request)
+        // can run it.
+        add_action(self::CRON_HOOK_INITIAL_CHECK, [$this, 'handleDailyCheck']);
+
         // REST API — registered outside is_admin() so it works on non-admin REST requests.
         add_action('rest_api_init', function (): void {
             (new StatusController(
@@ -93,6 +100,7 @@ final class Plugin
 
         add_action('admin_init', function (): void {
             $this->actions()->ensureAutoDetectedDomain();
+            $this->maybeScheduleInitialCheck();
         });
 
         add_action('admin_menu', function (): void {
@@ -220,7 +228,19 @@ final class Plugin
     {
         $records = $this->repository()->all();
         foreach ($records as $record) {
-            $code = $record->statusCode($this->alertsForRecord($record));
+            $alerts = $this->alertsForRecord($record);
+            $code   = $record->statusCode($alerts);
+
+            $this->logStatusVerdict($record, $alerts, $code);
+
+            // A domain that has never been checked is pending its first
+            // (auto-scheduled) check, not a problem the admin must act on.
+            // Don't raise the "needs attention" banner for it; the queued
+            // check will set a real status shortly.
+            if ($record->lastCheckedAt() === '' && $record->snapshot() === []) {
+                continue;
+            }
+
             if ($code === StatusCalculator::STATUS_WARN || $code === StatusCalculator::STATUS_FAIL) {
                 $settingsUrl = function_exists('admin_url')
                     ? esc_url(admin_url('options-general.php?page=domain-monitor'))
@@ -847,6 +867,94 @@ final class Plugin
         $next = $order[$new] ?? 0;
 
         return $next > $prev;
+    }
+
+    /**
+     * Queue an immediate, one-off check for any active domain that has never
+     * been checked, so a freshly-seeded domain gets a real status without
+     * waiting for the daily cron or a manual click.
+     *
+     * Runs off the request via WP-Cron (no blocking network calls on page load).
+     * Guarded by wp_next_scheduled so repeated admin loads don't pile up events;
+     * once the check runs and stamps last_checked_at, this stops scheduling.
+     */
+    private function maybeScheduleInitialCheck(): void
+    {
+        if (! function_exists('wp_schedule_single_event') || ! function_exists('wp_next_scheduled')) {
+            return;
+        }
+
+        // Already queued — nothing to do.
+        if (wp_next_scheduled(self::CRON_HOOK_INITIAL_CHECK) !== false) {
+            return;
+        }
+
+        foreach ($this->repository()->all() as $record) {
+            if ($record->isActive() && $record->lastCheckedAt() === '') {
+                wp_schedule_single_event(time(), self::CRON_HOOK_INITIAL_CHECK);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Debug-only: log why a domain was (or was not) flagged as "needs attention".
+     *
+     * Gated on WP_DEBUG so it never runs in production. Logging lives here, in the
+     * WordPress adapter layer, on purpose: StatusCalculator is kept WordPress-free,
+     * and its returned message already names the branch that fired, so we re-run it
+     * here purely to capture that human-readable reason (statusCode() discards it).
+     *
+     * Output lands in wp-content/debug.log (WP_DEBUG_LOG). Look for "[domain-monitor]".
+     *
+     * @param list<array<string,mixed>> $alerts
+     */
+    private function logStatusVerdict(DomainRecord $record, array $alerts, string $code): void
+    {
+        if (! (defined('WP_DEBUG') && WP_DEBUG)) {
+            return;
+        }
+
+        $snapshot     = $record->snapshot();
+        $neverChecked = $record->lastCheckedAt() === '' && $snapshot === [];
+
+        if ($neverChecked) {
+            $reason = 'Domain has never been checked (no snapshot yet); statusCode() defaults to WARN until the first check runs.';
+        } else {
+            $reason = (new StatusCalculator())
+                ->calculate($snapshot, $alerts, new DateTimeImmutable())
+                ->message();
+        }
+
+        $alertSummary = array_map(static function (array $alert): array {
+            return [
+                'type'        => $alert['type'] ?? null,
+                'severity'    => $alert['severity'] ?? null,
+                'is_active'   => $alert['is_active'] ?? null,
+                'resolved_at' => $alert['resolved_at'] ?? null,
+            ];
+        }, $alerts);
+
+        $context = [
+            'domain'          => $record->domain(),
+            'verdict'         => $code,
+            'reason'          => $reason,
+            'needs_attention' => $code === StatusCalculator::STATUS_WARN || $code === StatusCalculator::STATUS_FAIL,
+            'last_checked_at' => $record->lastCheckedAt() !== '' ? $record->lastCheckedAt() : '(never)',
+            'rdap_status'     => $snapshot['rdap']['status'] ?? null,
+            'rdap_expires_at' => $snapshot['rdap']['expires_at'] ?? null,
+            'ssl_status'      => $snapshot['ssl']['status'] ?? null,
+            'ssl_expires_at'  => $snapshot['ssl']['expires_at'] ?? null,
+            'dns_status'      => $snapshot['dns']['status'] ?? null,
+            'http_status'     => $snapshot['http']['status'] ?? null,
+            'active_alerts'   => $alertSummary,
+        ];
+
+        $json = function_exists('wp_json_encode')
+            ? wp_json_encode($context)
+            : json_encode($context);
+
+        error_log('[domain-monitor] status verdict: ' . $json);
     }
 
     private function nowMysql(): string

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Domain Monitor
  * Description: Proof-of-concept domain health monitor for WordPress.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Requires PHP: 7.4
  * Requires at least: 6.6
  * Author: Gabe Herbert
@@ -17,7 +17,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('DOMAIN_MONITOR_VERSION', '0.1.0');
+define('DOMAIN_MONITOR_VERSION', '0.1.1');
 define('DOMAIN_MONITOR_PLUGIN_FILE', __FILE__);
 
 $domain_monitor_autoload = __DIR__ . '/vendor/autoload.php';
@@ -65,6 +65,7 @@ register_activation_hook(__FILE__, static function (): void {
 
 register_deactivation_hook(__FILE__, static function (): void {
     wp_clear_scheduled_hook('domain_monitor_daily_check');
+    wp_clear_scheduled_hook('domain_monitor_initial_check');
 });
 
 add_action('plugins_loaded', static function (): void {
