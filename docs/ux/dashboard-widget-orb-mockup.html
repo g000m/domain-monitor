@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Domain Monitor — WordPress-native dashboard widget mockup</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f0f0f1;
+      color: #1d2327;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    /* WordPress admin approximation */
+    .wp-admin-shell {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 25px 20px 56px;
+    }
+    .wrap h1 {
+      margin: 0 0 16px;
+      padding: 9px 0 4px;
+      font-size: 23px;
+      font-weight: 400;
+      line-height: 1.3;
+    }
+    .description {
+      max-width: 760px;
+      margin: 0 0 16px;
+      color: #646970;
+    }
+    #dashboard-widgets-wrap { margin: 0 -8px; }
+    #dashboard-widgets {
+      display: grid;
+      grid-template-columns: minmax(255px, 1fr) minmax(255px, 1fr);
+      gap: 16px;
+      padding: 0 8px;
+      align-items: start;
+    }
+    .postbox {
+      position: relative;
+      min-width: 255px;
+      border: 1px solid #c3c4c7;
+      box-shadow: 0 1px 1px rgba(0,0,0,.04);
+      background: #fff;
+    }
+    .postbox-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 36px;
+      border-bottom: 1px solid #c3c4c7;
+    }
+    .postbox-header h2 {
+      flex: 1;
+      margin: 0;
+      padding: 8px 12px;
+      font-size: 14px;
+      line-height: 1.4;
+      font-weight: 600;
+    }
+    .handle-actions {
+      display: flex;
+      align-items: center;
+      color: #787c82;
+      padding-right: 6px;
+      font-size: 18px;
+      letter-spacing: 1px;
+    }
+    .inside {
+      margin: 11px 0;
+      padding: 0 12px 12px;
+    }
+    a {
+      color: #2271b1;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    a:hover { color: #135e96; }
+    button,
+    .button {
+      display: inline-block;
+      min-height: 30px;
+      margin: 0;
+      padding: 0 10px;
+      border: 1px solid #2271b1;
+      border-radius: 3px;
+      background: #f6f7f7;
+      color: #2271b1;
+      font: inherit;
+      font-size: 13px;
+      line-height: 2.15384615;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    button:hover,
+    .button:hover {
+      border-color: #135e96;
+      color: #135e96;
+      background: #f0f0f1;
+    }
+    button[aria-pressed="true"] {
+      background: #2271b1;
+      border-color: #2271b1;
+      color: #fff;
+    }
+
+    /* Domain Monitor widget concept, constrained to wp-admin vocabulary */
+    .dm-widget {
+      --dm-state: #00a32a;
+      --dm-state-border: #008a20;
+      --dm-state-bg: transparent;
+      --dm-state-note-bg: #f6f7f7;
+      text-align: center;
+      padding: 7px 0 0;
+      background: var(--dm-state-bg);
+    }
+    .dm-widget[data-state="watch"] {
+      --dm-state: #dba617;
+      --dm-state-border: #b8860b;
+      --dm-state-note-bg: #fcf9e8;
+    }
+    .dm-widget[data-state="attention"] {
+      --dm-state: #d63638;
+      --dm-state-border: #b32d2e;
+      --dm-state-bg: #fcf0f1;
+      --dm-state-note-bg: #fff;
+      margin: -11px -12px -12px;
+      padding: 18px 12px 12px;
+    }
+    .dm-status-orb {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+      background: var(--dm-state);
+      border: 1px solid var(--dm-state-border);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.32),
+        0 0 0 6px color-mix(in srgb, var(--dm-state) 14%, transparent);
+    }
+    @supports not (background: color-mix(in srgb, red, transparent)) {
+      .dm-status-orb { box-shadow: inset 0 1px 0 rgba(255,255,255,.32), 0 0 0 6px rgba(0,163,42,.12); }
+      .dm-widget[data-state="watch"] .dm-status-orb { box-shadow: inset 0 1px 0 rgba(255,255,255,.32), 0 0 0 6px rgba(219,166,23,.15); }
+      .dm-widget[data-state="attention"] .dm-status-orb { box-shadow: inset 0 1px 0 rgba(255,255,255,.32), 0 0 0 6px rgba(214,54,56,.14); }
+    }
+    .dm-widget[data-state="attention"] .dm-status-orb {
+      animation: dm-pulse 1.9s ease-out infinite;
+    }
+    @keyframes dm-pulse {
+      0% { box-shadow: inset 0 1px 0 rgba(255,255,255,.32), 0 0 0 3px rgba(214,54,56,.16); }
+      70% { box-shadow: inset 0 1px 0 rgba(255,255,255,.32), 0 0 0 12px rgba(214,54,56,0); }
+      100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.32), 0 0 0 12px rgba(214,54,56,0); }
+    }
+    .dm-status-title {
+      margin: 0;
+      color: #1d2327;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .dm-domain {
+      margin: 2px 0 0;
+      color: #50575e;
+      font-size: 13px;
+    }
+    .dm-meta {
+      margin: 10px 0 0;
+      color: #646970;
+      font-size: 12px;
+    }
+    .dm-actions {
+      margin: 11px 0 0;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      align-items: baseline;
+      flex-wrap: wrap;
+      font-size: 12px;
+    }
+    .dm-detail {
+      display: none;
+      margin: 14px 0 0;
+      padding: 10px 12px;
+      border-left: 4px solid var(--dm-state);
+      background: var(--dm-state-note-bg);
+      color: #3c434a;
+      text-align: left;
+      font-size: 13px;
+    }
+    .dm-widget[data-state="watch"] .dm-detail,
+    .dm-widget[data-state="attention"] .dm-detail {
+      display: block;
+    }
+    .dm-detail p { margin: 0; }
+    .dm-detail strong { color: #1d2327; }
+
+    .mockup-controls {
+      margin: 12px -12px -12px;
+      padding: 10px 12px;
+      border-top: 1px solid #dcdcde;
+      background: #f6f7f7;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .mockup-controls .label {
+      width: 100%;
+      color: #646970;
+      font-size: 12px;
+    }
+    .notes h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .notes p,
+    .notes li { color: #3c434a; }
+    .notes ul { margin: 0 0 12px 18px; padding: 0; }
+    .notes li + li { margin-top: 6px; }
+    .state-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .state-row {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 9px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid #dcdcde;
+      background: #fff;
+    }
+    .small-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #00a32a;
+      border: 1px solid #008a20;
+    }
+    .state-row:nth-child(2) .small-dot { background: #dba617; border-color: #b8860b; }
+    .state-row:nth-child(3) .small-dot { background: #d63638; border-color: #b32d2e; }
+    .state-row strong { display: block; }
+    .state-row span { color: #646970; font-size: 12px; }
+
+    @media (max-width: 782px) {
+      #dashboard-widgets { grid-template-columns: 1fr; }
+      .dm-status-orb { width: 62px; height: 62px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wp-admin-shell wrap">
+    <h1>Dashboard</h1>
+    <p class="description"><strong>Mockup note:</strong> this version keeps the “green orb” idea, but pulls the rest back into native WordPress dashboard patterns: postbox chrome, core colors, ordinary links, modest spacing, and notice-like details.</p>
+
+    <div id="dashboard-widgets-wrap">
+      <div id="dashboard-widgets">
+        <article class="postbox" aria-label="Domain Monitor dashboard widget">
+          <div class="postbox-header">
+            <h2>Domain Monitor</h2>
+            <div class="handle-actions" aria-hidden="true">⌃ ⋮</div>
+          </div>
+          <div class="inside">
+            <section class="dm-widget" id="domain-widget" data-state="healthy" aria-live="polite">
+              <div class="dm-status-orb" aria-hidden="true"></div>
+              <p class="dm-status-title" id="status-title">All's well</p>
+              <p class="dm-domain" id="domain-line">gabeherbert.com</p>
+              <p class="dm-meta" id="meta-line">Checked 12 minutes ago</p>
+              <div class="dm-actions">
+                <a href="#">View domain details</a>
+              </div>
+              <div class="dm-detail" id="detail-box">
+                <p>No details needed. This appears only when the orb leaves green.</p>
+              </div>
+            </section>
+
+            <div class="mockup-controls" aria-label="Mockup state controls">
+              <span class="label">Mockup controls</span>
+              <button type="button" aria-pressed="true" data-state="healthy">Healthy</button>
+              <button type="button" aria-pressed="false" data-state="watch">Watch</button>
+              <button type="button" aria-pressed="false" data-state="attention">Attention</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="postbox notes">
+          <div class="postbox-header"><h2>Design notes</h2></div>
+          <div class="inside">
+            <h3>Native-feeling constraints</h3>
+            <ul>
+              <li>Use the standard dashboard <strong>postbox</strong> shape instead of a custom card.</li>
+              <li>Use WordPress admin colors: green success, yellow warning, red error, blue links.</li>
+              <li>Keep typography, borders, spacing, and buttons close to wp-admin defaults.</li>
+              <li>Let the orb be the only branded/custom visual element.</li>
+            </ul>
+
+            <div class="state-list" aria-label="State model">
+              <div class="state-row"><div class="small-dot"></div><div><strong>Healthy</strong><span>Quiet default. Green orb plus short confirmation.</span></div></div>
+              <div class="state-row"><div class="small-dot"></div><div><strong>Watch</strong><span>Something uncertain, not urgent. Show a short notice-style detail.</span></div></div>
+              <div class="state-row"><div class="small-dot"></div><div><strong>Attention</strong><span>Problem detected. Red orb and pale red background, still calm.</span></div></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const copy = {
+      healthy: {
+        title: "All's well",
+        domain: 'gabeherbert.com',
+        meta: 'Checked 12 minutes ago',
+        detail: '<p>No details needed. This appears only when the orb leaves green.</p>'
+      },
+      watch: {
+        title: 'Worth a look',
+        domain: 'gabeherbert.com',
+        meta: 'Expiration date unknown',
+        detail: '<p><strong>gabeherbert.com:</strong> RDAP did not return an expiration date. The domain still resolves normally.</p>'
+      },
+      attention: {
+        title: 'Needs attention',
+        domain: 'gabeherbert.com',
+        meta: 'Latest check failed',
+        detail: '<p><strong>gabeherbert.com:</strong> DNS lookup failed on the latest check. Confirm the domain is still resolving.</p>'
+      }
+    };
+
+    const widget = document.getElementById('domain-widget');
+    const title = document.getElementById('status-title');
+    const domain = document.getElementById('domain-line');
+    const meta = document.getElementById('meta-line');
+    const detail = document.getElementById('detail-box');
+    const buttons = Array.from(document.querySelectorAll('.mockup-controls button'));
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const state = button.dataset.state;
+        widget.dataset.state = state;
+        title.textContent = copy[state].title;
+        domain.textContent = copy[state].domain;
+        meta.textContent = copy[state].meta;
+        detail.innerHTML = copy[state].detail;
+        buttons.forEach((candidate) => candidate.setAttribute('aria-pressed', String(candidate === button)));
+      });
+    });
+  </script>
+</body>
+</html>
