@@ -121,7 +121,8 @@ final class Plugin
             DashboardWidget::fromDomains(
                 $this->allDomainSummaries(),
                 $this->adminPostUrl(),
-                $this->manualCheckNonce()
+                $this->manualCheckNonce(),
+                $this->domainSettingsUrl()
             )->register();
         });
 
@@ -700,11 +701,14 @@ final class Plugin
 
             if ($record->lastCheckedAt() === '') {
                 $summaries[] = [
-                    'domain'     => $record->domain(),
-                    'status'     => '',
-                    'message'    => '',
-                    'checked_at' => '',
-                    'expires_at' => '',
+                    'domain'           => $record->domain(),
+                    'status'           => '',
+                    'message'          => '',
+                    'checked_at'       => '',
+                    'expires_at'       => '',
+                    'rdap_expires_at'  => '',
+                    'ssl_expires_at'   => '',
+                    'open_alert_types' => [],
                 ];
                 continue;
             }
@@ -716,12 +720,18 @@ final class Plugin
                 new \DateTimeImmutable()
             );
 
+            $openAlerts      = $this->alertStore()->openAlertsForDomain($record->id());
+            $openAlertTypes  = array_values(array_unique(array_column($openAlerts, 'type')));
+
             $summaries[] = [
-                'domain'     => $record->domain(),
-                'status'     => $domainStatus->code(),
-                'message'    => $domainStatus->message(),
-                'checked_at' => $record->lastCheckedAt(),
-                'expires_at' => $record->rdapExpiresAt(),
+                'domain'           => $record->domain(),
+                'status'           => $domainStatus->code(),
+                'message'          => $domainStatus->message(),
+                'checked_at'       => $record->lastCheckedAt(),
+                'expires_at'       => $record->rdapExpiresAt(),
+                'rdap_expires_at'  => $record->rdapExpiresAt(),
+                'ssl_expires_at'   => $record->sslExpiresAt(),
+                'open_alert_types' => $openAlertTypes,
             ];
         }
 
@@ -756,6 +766,15 @@ final class Plugin
     {
         if (function_exists('admin_url')) {
             return (string) admin_url('admin-post.php');
+        }
+
+        return '';
+    }
+
+    private function domainSettingsUrl(): string
+    {
+        if (function_exists('admin_url')) {
+            return (string) admin_url('options-general.php?page=domain-monitor');
         }
 
         return '';

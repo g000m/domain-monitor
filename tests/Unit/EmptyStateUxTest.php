@@ -75,11 +75,12 @@ final class EmptyStateUxTest extends TestCase
 
     public function test_dashboard_widget_renders_normally_when_domain_is_set(): void
     {
+        // With a domain set but no prior check, the orb view renders (gray/pending state).
         $widget = new DashboardWidget('example.com', null, 'https://example.test/wp-admin/admin-post.php', 'nonce');
 
         $html = $widget->renderHtml();
 
-        self::assertStringContainsString('Monitored domain:', $html);
+        self::assertStringContainsString('domain-monitor-widget--orb', $html);
         self::assertStringContainsString('example.com', $html);
         self::assertStringNotContainsString('No public domain detected', $html);
     }

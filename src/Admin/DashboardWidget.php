@@ -9,14 +9,22 @@ final class DashboardWidget
 {
     /**
      * List of domain summaries for multi-domain rendering.
-     * Each entry: ['domain'=>string, 'status'=>string, 'message'=>string, 'checked_at'=>string, 'expires_at'=>string]
      *
-     * @var list<array<string,string>>
+     * Core keys (always present):
+     *   domain, status, message, checked_at, expires_at
+     *
+     * Extended keys used by the orb view (optional, default to '' / []):
+     *   rdap_expires_at   string   RDAP registration expiry (ISO-8601)
+     *   ssl_expires_at    string   SSL certificate expiry (ISO-8601)
+     *   open_alert_types  string[] Open alert type slugs for this domain
+     *
+     * @var list<array<string,mixed>>
      */
     private array $domainRows;
 
     private string $actionUrl;
     private string $nonce;
+    private string $detailsUrl;
 
     /**
      * Legacy single-domain constructor path (kept for back-compat with existing tests).
@@ -24,10 +32,11 @@ final class DashboardWidget
      *
      * @param array<string,string>|null $lastResult
      */
-    public function __construct(string $domain, ?array $lastResult = null, string $actionUrl = '', string $nonce = '')
+    public function __construct(string $domain, ?array $lastResult = null, string $actionUrl = '', string $nonce = '', string $detailsUrl = '')
     {
-        $this->actionUrl = $actionUrl;
-        $this->nonce     = $nonce;
+        $this->actionUrl  = $actionUrl;
+        $this->nonce      = $nonce;
+        $this->detailsUrl = $detailsUrl;
 
         if ($domain === '') {
             $this->domainRows = [];
@@ -37,11 +46,14 @@ final class DashboardWidget
         // Wrap single-domain data into the unified list format.
         $this->domainRows = [
             [
-                'domain'     => $domain,
-                'status'     => $lastResult !== null ? (string) ($lastResult['status'] ?? '') : '',
-                'message'    => (string) ($lastResult['message'] ?? ''),
-                'checked_at' => $lastResult !== null ? (string) ($lastResult['checked_at'] ?? '') : '',
-                'expires_at' => $lastResult !== null ? (string) ($lastResult['expires_at'] ?? '') : '',
+                'domain'           => $domain,
+                'status'           => $lastResult !== null ? (string) ($lastResult['status'] ?? '') : '',
+                'message'          => (string) ($lastResult['message'] ?? ''),
+                'checked_at'       => $lastResult !== null ? (string) ($lastResult['checked_at'] ?? '') : '',
+                'expires_at'       => $lastResult !== null ? (string) ($lastResult['expires_at'] ?? '') : '',
+                'rdap_expires_at'  => $lastResult !== null ? (string) ($lastResult['rdap_expires_at'] ?? $lastResult['expires_at'] ?? '') : '',
+                'ssl_expires_at'   => $lastResult !== null ? (string) ($lastResult['ssl_expires_at'] ?? '') : '',
+                'open_alert_types' => [],
             ],
         ];
     }
@@ -49,11 +61,16 @@ final class DashboardWidget
     /**
      * Named constructor for multi-domain mode used by Plugin.php.
      *
-     * @param list<array<string,string>> $domainRows Each row: domain, status, message, checked_at, expires_at.
+     * Extended keys accepted in each row (all optional):
+     *   rdap_expires_at   string
+     *   ssl_expires_at    string
+     *   open_alert_types  string[]
+     *
+     * @param list<array<string,mixed>> $domainRows
      */
-    public static function fromDomains(array $domainRows, string $actionUrl = '', string $nonce = ''): self
+    public static function fromDomains(array $domainRows, string $actionUrl = '', string $nonce = '', string $detailsUrl = ''): self
     {
-        $widget             = new self('__bypass__', null, $actionUrl, $nonce);
+        $widget             = new self('__bypass__', null, $actionUrl, $nonce, $detailsUrl);
         $widget->domainRows = $domainRows;
         return $widget;
     }
@@ -82,9 +99,9 @@ final class DashboardWidget
             return $this->devNoticeHtml();
         }
 
-        // Single-domain legacy path: preserve the detailed original layout.
+        // Single-domain: use the ambient orb view (the 99 % case).
         if (count($this->domainRows) === 1) {
-            return $this->renderSingleDomain($this->domainRows[0]);
+            return $this->renderOrbView($this->domainRows[0]);
         }
 
         return $this->renderMultiDomain();
@@ -108,32 +125,211 @@ final class DashboardWidget
     }
 
     /**
-     * Original single-domain detailed layout — unchanged so existing behaviour is preserved.
+     * Ambient orb view — rendered when exactly one domain is monitored.
      *
-     * @param array<string,string> $row
+     * @param array<string,mixed> $row
      */
-    private function renderSingleDomain(array $row): string
+    private function renderOrbView(array $row): string
     {
-        $domain     = $this->escapeHtml($row['domain']);
-        $status     = $this->statusPill($row['status']);
-        $message    = $this->rowMessageHtml($row['message']);
-        $expiration = $this->rowExpirationHtml($row['expires_at']);
-        $checkedAt  = $this->rowCheckedAtHtml($row['checked_at']);
-        $form       = $this->manualCheckFormHtml();
+        $presenter = new OrbStatusPresenter();
+        $color     = $presenter->color($row);
+        $domain    = $this->escapeHtml((string) ($row['domain'] ?? ''));
+        $detailUrl = $this->detailsUrl !== ''
+            ? $this->escapeAttribute($this->detailsUrl)
+            : $this->escapeAttribute($this->settingsUrl());
+        $detailText = $this->escapeHtml($this->translate('Details'));
 
-        $monitoredLabel = $this->escapeHtml($this->translate('Monitored domain:'));
-        $statusLabel    = $this->escapeHtml($this->translate('Status:'));
+        $orbClass = 'domain-monitor-orb domain-monitor-orb--' . $this->escapeAttribute($color);
 
-        return <<<HTML
-<div class="domain-monitor-widget">
-    <p><strong>{$monitoredLabel}</strong> {$domain}</p>
-    <p><strong>{$statusLabel} {$status}</strong></p>
-    {$expiration}
-    {$message}
-    {$checkedAt}
-    {$form}
+        $style = $this->orbStylesHtml();
+
+        if ($color === OrbStatusPresenter::COLOR_GRAY) {
+            $pendingText = $this->escapeHtml($this->translate('First check pending'));
+            return <<<HTML
+{$style}
+<div class="domain-monitor-widget domain-monitor-widget--orb">
+    <div class="domain-monitor-orb-wrap">
+        <div class="{$orbClass}"></div>
+        <div class="domain-monitor-orb-body">
+            <span class="domain-monitor-orb-fact--muted">{$pendingText}</span>
+            <span class="domain-monitor-orb-fact--muted domain-monitor-orb-domain-sub">{$domain}</span>
+        </div>
+    </div>
+    <div class="domain-monitor-orb-footer">
+        <a href="{$detailUrl}">{$detailText}</a>
+    </div>
 </div>
 HTML;
+        }
+
+        if ($color === OrbStatusPresenter::COLOR_GREEN) {
+            $checkedAgo = $presenter->checkedAgoText($row);
+            $subtitle   = '';
+            if ($checkedAgo !== '') {
+                $allClearText = $this->escapeHtml(
+                    $this->translate('All checks passing') . ' · ' . $checkedAgo
+                );
+                $subtitle = '<p class="domain-monitor-orb-subtitle">' . $allClearText . '</p>';
+            }
+
+            return <<<HTML
+{$style}
+<div class="domain-monitor-widget domain-monitor-widget--orb">
+    <div class="domain-monitor-orb-wrap">
+        <div class="{$orbClass}"></div>
+        <div>
+            <p class="domain-monitor-orb-domain">{$domain}</p>
+            {$subtitle}
+        </div>
+    </div>
+    <div class="domain-monitor-orb-footer">
+        <a href="{$detailUrl}">{$detailText}</a>
+    </div>
+</div>
+HTML;
+        }
+
+        // AMBER or RED.
+        $factLine    = $this->escapeHtml($presenter->factLine($row));
+        $factClass   = 'domain-monitor-orb-fact domain-monitor-orb-fact--' . $this->escapeAttribute($color);
+        $actionHtml  = $this->orbActionHtml($color, $detailUrl, $detailText);
+
+        return <<<HTML
+{$style}
+<div class="domain-monitor-widget domain-monitor-widget--orb">
+    <div class="domain-monitor-orb-wrap">
+        <div class="{$orbClass}"></div>
+        <div class="domain-monitor-orb-body">
+            <span class="{$factClass}">{$factLine}</span>
+            <span class="domain-monitor-orb-fact--muted domain-monitor-orb-domain-sub">{$domain}</span>
+        </div>
+        {$actionHtml}
+    </div>
+    <div class="domain-monitor-orb-footer">
+        <a href="{$detailUrl}">{$detailText}</a>
+    </div>
+</div>
+HTML;
+    }
+
+    /**
+     * Inline <style> block for the orb widget. Scoped with domain-monitor- prefixes.
+     * Only emitted once per widget render (the widget only appears once per page).
+     */
+    private function orbStylesHtml(): string
+    {
+        return <<<'CSS'
+<style>
+.domain-monitor-orb-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 12px 20px;
+    gap: 14px;
+}
+.domain-monitor-orb {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.domain-monitor-orb--green {
+    background: #00a32a;
+    box-shadow: 0 0 0 8px rgba(0,163,42,.12), 0 0 24px rgba(0,163,42,.30);
+}
+.domain-monitor-orb--amber {
+    background: #dba617;
+    box-shadow: 0 0 0 8px rgba(219,166,23,.12), 0 0 20px rgba(219,166,23,.28);
+}
+.domain-monitor-orb--red {
+    background: #d63638;
+    box-shadow: 0 0 0 8px rgba(214,54,56,.14), 0 0 24px rgba(214,54,56,.35);
+    animation: domain-monitor-orb-pulse 2.6s ease-in-out infinite;
+}
+.domain-monitor-orb--gray {
+    background: #8c8f94;
+    box-shadow: 0 0 0 8px rgba(140,143,148,.10), 0 0 16px rgba(140,143,148,.18);
+}
+@keyframes domain-monitor-orb-pulse {
+    0%   { transform: scale(1);    box-shadow: 0 0 0 8px rgba(214,54,56,.14), 0 0 24px rgba(214,54,56,.35); }
+    50%  { transform: scale(1.07); box-shadow: 0 0 0 14px rgba(214,54,56,.10), 0 0 36px rgba(214,54,56,.55); }
+    100% { transform: scale(1);    box-shadow: 0 0 0 8px rgba(214,54,56,.14), 0 0 24px rgba(214,54,56,.35); }
+}
+.domain-monitor-orb-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    text-align: center;
+    flex: 1;
+}
+.domain-monitor-orb-domain {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d2327;
+    text-align: center;
+    line-height: 1.4;
+    margin: 0;
+}
+.domain-monitor-orb-subtitle {
+    font-size: 12px;
+    color: #646970;
+    text-align: center;
+    margin: -8px 0 0;
+}
+.domain-monitor-orb-fact {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.domain-monitor-orb-fact--amber { color: #8a6116; }
+.domain-monitor-orb-fact--red   { color: #d63638; }
+.domain-monitor-orb-fact--muted { color: #646970; font-weight: 400; font-size: 11px; }
+.domain-monitor-orb-domain-sub  { font-size: 11px; }
+.domain-monitor-orb-action { margin-top: 2px; }
+.domain-monitor-orb-action a { font-size: 12px; color: #2271b1; text-decoration: none; }
+.domain-monitor-orb-action a:hover { text-decoration: underline; }
+.domain-monitor-orb-action .button-primary { height: 26px; line-height: 24px; padding: 0 10px; font-size: 12px; }
+.domain-monitor-orb-footer {
+    text-align: center;
+    padding: 8px 12px 12px;
+    border-top: 1px solid #c3c4c7;
+}
+.domain-monitor-orb-footer a { font-size: 11px; color: #646970; text-decoration: none; }
+.domain-monitor-orb-footer a:hover { color: #2271b1; text-decoration: underline; }
+</style>
+CSS;
+    }
+
+    /**
+     * Renders the action link/button for amber and red orb states.
+     * Red state uses a primary button per the design card; amber uses a plain link.
+     */
+    private function orbActionHtml(string $color, string $detailUrl, string $detailText): string
+    {
+        if ($color === OrbStatusPresenter::COLOR_RED) {
+            return '<div class="domain-monitor-orb-action">'
+                . '<a href="' . $detailUrl . '" class="button button-primary">' . $detailText . '</a>'
+                . '</div>';
+        }
+
+        // Amber: plain link.
+        return '<div class="domain-monitor-orb-action">'
+            . '<a href="' . $detailUrl . '">' . $detailText . '</a>'
+            . '</div>';
+    }
+
+    /**
+     * Returns the admin settings page URL for the "Details" link.
+     * Falls back to '#' when WordPress functions are unavailable (tests).
+     */
+    private function settingsUrl(): string
+    {
+        if (function_exists('admin_url')) {
+            return (string) admin_url('options-general.php?page=domain-monitor');
+        }
+
+        return '#';
     }
 
     /**
